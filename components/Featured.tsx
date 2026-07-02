@@ -29,7 +29,7 @@ export default function Featured() {
         <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-paper/80">
           Latest — 02
         </span>
-        <h2 className="font-display text-[12vw] font-bold uppercase leading-[0.9] text-paper md:text-[7vw]">
+        <h2 className="break-words font-display text-[10vw] font-bold uppercase leading-[0.9] text-paper md:text-[7vw]">
           Off The Track
         </h2>
       </div>
