@@ -17,7 +17,7 @@ export default function Hero() {
         aria-hidden
       />
 
-      <h1 className="font-display font-extrabold uppercase leading-[0.9] text-[clamp(58px,13vw,190px)]">
+      <h1 className="font-display font-bold uppercase leading-[0.9] text-[clamp(58px,13vw,190px)]">
         <span className="block overflow-hidden">
           <motion.span
             className="block"

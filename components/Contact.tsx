@@ -15,7 +15,7 @@ export default function Contact() {
       />
 
       <motion.h2
-        className="font-display text-[13vw] font-extrabold uppercase leading-[0.9] md:text-[7vw]"
+        className="font-display text-[13vw] font-bold uppercase leading-[0.9] md:text-[7vw]"
         variants={fadeUp}
         initial="hidden"
         whileInView="visible"

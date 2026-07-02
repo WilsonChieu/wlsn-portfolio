@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Syne, Manrope, IBM_Plex_Mono } from "next/font/google";
+import { Space_Grotesk, Manrope, IBM_Plex_Mono } from "next/font/google";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import "./globals.css";
 
-const syne = Syne({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["700", "800"],
-  variable: "--font-syne",
+  weight: ["500", "700"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${syne.variable} ${manrope.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${manrope.variable} ${plexMono.variable}`}>
       <body className="font-body bg-paper text-ink antialiased">
         <SmoothScrollProvider>{children}</SmoothScrollProvider>
       </body>

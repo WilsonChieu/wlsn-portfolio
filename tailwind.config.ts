@@ -12,7 +12,7 @@ const config: Config = {
         line: "rgba(17,17,16,0.12)",
       },
       fontFamily: {
-        display: ["var(--font-syne)", "sans-serif"],
+        display: ["var(--font-display)", "sans-serif"],
         body: ["var(--font-manrope)", "sans-serif"],
         mono: ["var(--font-plex-mono)", "monospace"],
       },

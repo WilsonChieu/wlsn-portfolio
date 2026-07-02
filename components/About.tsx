@@ -9,7 +9,7 @@ export default function About() {
   return (
     <section id="about" className="grid gap-12 px-6 py-24 md:grid-cols-2 md:gap-16 md:px-12 md:py-32">
       <motion.h2
-        className="font-display text-4xl font-extrabold uppercase leading-[0.95] md:text-6xl"
+        className="font-display text-4xl font-bold uppercase leading-[0.95] md:text-6xl"
         variants={fadeUp}
         initial="hidden"
         whileInView="visible"

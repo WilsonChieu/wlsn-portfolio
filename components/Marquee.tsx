@@ -6,7 +6,7 @@ function Track() {
   return (
     <div className="flex shrink-0 items-center gap-8 pr-8">
       {ITEMS.map((item) => (
-        <span key={item} className="flex items-center gap-8 font-display text-3xl font-extrabold uppercase md:text-5xl">
+        <span key={item} className="flex items-center gap-8 font-display text-3xl font-bold uppercase md:text-5xl">
           {item}
           <span className="text-olive">✳</span>
         </span>

@@ -62,7 +62,7 @@ export default function Loader() {
         >
           <div className="overflow-hidden">
             <motion.h1
-              className="font-display text-[12vw] font-extrabold uppercase leading-[0.9] text-paper md:text-[8vw]"
+              className="font-display text-[12vw] font-bold uppercase leading-[0.9] text-paper md:text-[8vw]"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               transition={{ duration: 0.8, ease: easeLoader }}
@@ -72,7 +72,7 @@ export default function Loader() {
           </div>
 
           <div className="flex items-end justify-between">
-            <span className="font-display text-[18vw] font-extrabold leading-none text-paper md:text-[10vw]">
+            <span className="font-display text-[18vw] font-bold leading-none text-paper md:text-[10vw]">
               {count}
             </span>
             <div className="h-px w-1/2 bg-paper/20 md:w-1/3">

@@ -38,7 +38,7 @@ export default function WorkList() {
                     sizes="200px"
                   />
                 </div>
-                <h3 className="min-w-0 flex-1 break-words font-display text-2xl font-extrabold uppercase leading-[0.95] transition-all duration-300 group-hover:translate-x-[14px] group-hover:text-olive md:text-5xl">
+                <h3 className="min-w-0 flex-1 break-words font-display text-2xl font-bold uppercase leading-[0.95] transition-all duration-300 group-hover:translate-x-[14px] group-hover:text-olive md:text-5xl">
                   {row.title}
                 </h3>
               </div>
