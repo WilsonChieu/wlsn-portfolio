@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { useMarkLoaderComplete } from "./LoaderContext";
@@ -13,9 +13,10 @@ const EXIT_PAUSE_MS = 300;
 export default function Loader() {
   const reducedMotion = useReducedMotion();
   const markComplete = useMarkLoaderComplete();
-  const [count, setCount] = useState(0);
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
+  const countRef = useRef<HTMLSpanElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const alreadySeen = sessionStorage.getItem(SESSION_KEY) === "true";
@@ -27,13 +28,22 @@ export default function Loader() {
     }
     setReady(true);
 
-    const start = performance.now();
+    // Measure elapsed time from the first *painted* frame, not from this
+    // synchronous effect call — on slower devices, mounting every other
+    // section's client component competes for the main thread right here,
+    // so a performance.now() captured now can already be well behind the
+    // clock rAF timestamps use, making the animation appear to skip straight
+    // to its end.
+    let start: number | null = null;
     let frame: number;
 
     function tick(now: number) {
+      if (start === null) start = now;
       const elapsed = now - start;
       const progress = Math.min(1, elapsed / COUNT_DURATION_MS);
-      setCount(Math.round(progress * 100));
+      const value = Math.round(progress * 100);
+      if (countRef.current) countRef.current.textContent = String(value);
+      if (barRef.current) barRef.current.style.width = `${value}%`;
       if (progress < 1) {
         frame = requestAnimationFrame(tick);
       } else {
@@ -72,14 +82,14 @@ export default function Loader() {
           </div>
 
           <div className="flex items-end justify-between">
-            <span className="font-display text-[18vw] font-bold leading-none text-paper md:text-[10vw]">
-              {count}
+            <span
+              ref={countRef}
+              className="font-display text-[18vw] font-bold leading-none text-paper md:text-[10vw]"
+            >
+              0
             </span>
             <div className="h-px w-1/2 bg-paper/20 md:w-1/3">
-              <div
-                className="h-full bg-olive transition-[width] duration-100 ease-linear"
-                style={{ width: `${count}%` }}
-              />
+              <div ref={barRef} className="h-full bg-olive" style={{ width: "0%" }} />
             </div>
           </div>
         </motion.div>
