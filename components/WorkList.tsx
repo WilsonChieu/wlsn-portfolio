@@ -24,7 +24,7 @@ export default function WorkList() {
         {ROWS.map((row) => (
           <motion.li
             key={row.title}
-            className="group relative overflow-hidden border-t border-line py-8 last:border-b"
+            className="group relative overflow-hidden border-t border-line py-14 last:border-b md:py-20"
             variants={fadeUp}
             initial="hidden"
             whileInView="visible"
