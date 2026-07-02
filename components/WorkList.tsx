@@ -45,20 +45,9 @@ export default function WorkList() {
               href="#"
               className="focus-ring relative z-10 flex w-full flex-col items-start gap-4 md:flex-row md:items-center md:justify-between"
             >
-              <div className="flex w-full min-w-0 items-center gap-4 md:gap-6">
-                <div className="relative h-14 w-20 shrink-0 overflow-hidden md:h-20 md:w-28">
-                  <Image
-                    src={row.image}
-                    alt={`${row.title} — ${row.meta}`}
-                    fill
-                    className="object-cover"
-                    sizes="200px"
-                  />
-                </div>
-                <h3 className="min-w-0 flex-1 break-words font-display text-2xl font-bold uppercase leading-[0.95] transition-all duration-300 group-hover:translate-x-[14px] group-hover:text-olive md:text-5xl">
-                  {row.title}
-                </h3>
-              </div>
+              <h3 className="min-w-0 flex-1 break-words font-display text-2xl font-bold uppercase leading-[0.95] text-ink transition-all duration-300 [text-shadow:0_2px_10px_rgba(17,17,16,0)] group-hover:translate-x-[14px] group-hover:text-paper group-hover:[text-shadow:0_2px_10px_rgba(17,17,16,0.7)] md:text-5xl">
+                {row.title}
+              </h3>
               <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/50 md:text-right">
                 {row.meta}
               </span>
