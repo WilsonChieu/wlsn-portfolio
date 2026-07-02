@@ -27,9 +27,9 @@ export default function WorkList() {
             whileInView="visible"
             viewport={{ once: true }}
           >
-            <a href="#" className="focus-ring flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-6">
-                <div className="relative h-16 w-24 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] group-hover:w-32 md:h-20 md:w-28 md:group-hover:w-40">
+            <a href="#" className="focus-ring flex w-full flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex w-full min-w-0 items-center gap-4 md:gap-6">
+                <div className="relative h-14 w-20 shrink-0 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.2,0.7,0.2,1)] md:h-20 md:w-28 md:group-hover:w-40">
                   <Image
                     src={row.image}
                     alt={`${row.title} — ${row.meta}`}
@@ -38,7 +38,7 @@ export default function WorkList() {
                     sizes="200px"
                   />
                 </div>
-                <h3 className="font-display text-3xl font-extrabold uppercase transition-all duration-300 group-hover:translate-x-[14px] group-hover:text-olive md:text-5xl">
+                <h3 className="min-w-0 flex-1 break-words font-display text-2xl font-extrabold uppercase leading-[0.95] transition-all duration-300 group-hover:translate-x-[14px] group-hover:text-olive md:text-5xl">
                   {row.title}
                 </h3>
               </div>
