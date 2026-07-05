@@ -1,8 +1,20 @@
 "use client";
 
+import { motion } from "framer-motion";
+import { useLoaderComplete, useLoaderPlayedIntro } from "./LoaderContext";
+import { navRevealDelay } from "@/lib/motion";
+
 export default function Nav() {
+  const loaderComplete = useLoaderComplete();
+  const playedIntro = useLoaderPlayedIntro();
+
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-6 py-6 md:px-12 md:py-8">
+    <motion.header
+      className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-6 py-6 md:px-12 md:py-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: loaderComplete ? 1 : 0 }}
+      transition={{ duration: 0.6, delay: playedIntro ? navRevealDelay : 0 }}
+    >
       <a href="#hero" className="font-display text-lg font-bold uppercase tracking-tight focus-ring">
         CRISP<span className="text-olive">TAKES</span>
       </a>
@@ -17,6 +29,6 @@ export default function Nav() {
           Book
         </a>
       </nav>
-    </header>
+    </motion.header>
   );
 }

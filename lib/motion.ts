@@ -19,3 +19,18 @@ export const lineReveal: Variants = {
     transition: { duration: 0.9, ease: easeStandard },
   },
 };
+
+// Loader timing — all in one place so the exit sequence can be tuned without
+// hunting through Loader.tsx. Ms-suffixed values feed setTimeout/rAF math;
+// unsuffixed values are Framer Motion durations in seconds.
+export const loaderCountDurationMs = 1600;
+export const loaderHoldMs = 300;
+export const loaderContentExitDuration = 0.35;
+export const doorDuration = 1.1;
+export const doorEase = easeLoader;
+
+// Post-loader entrance sync (Hero/Nav). Only applied when the intro actually
+// played — on repeat visits (loader skipped via sessionStorage) there's no
+// door animation to sync against, so these delays are skipped entirely.
+export const heroStartDelay = loaderContentExitDuration;
+export const navRevealDelay = 0.9;
