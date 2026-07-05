@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useReducedMotion } from "@/lib/useReducedMotion";
 import { useMarkLoaderComplete } from "./LoaderContext";
 import { easeLoader } from "@/lib/motion";
 
@@ -11,7 +10,6 @@ const COUNT_DURATION_MS = 1600;
 const EXIT_PAUSE_MS = 300;
 
 export default function Loader() {
-  const reducedMotion = useReducedMotion();
   const markComplete = useMarkLoaderComplete();
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
@@ -20,7 +18,7 @@ export default function Loader() {
 
   useEffect(() => {
     const alreadySeen = sessionStorage.getItem(SESSION_KEY) === "true";
-    if (alreadySeen || reducedMotion) {
+    if (alreadySeen) {
       setVisible(false);
       markComplete();
       setReady(true);
@@ -56,7 +54,7 @@ export default function Loader() {
     }
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [reducedMotion, markComplete]);
+  }, [markComplete]);
 
   if (!ready) return <div className="fixed inset-0 z-50 bg-ink" aria-hidden />;
 
