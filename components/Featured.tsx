@@ -14,7 +14,7 @@ export default function Featured() {
       className="relative flex h-screen w-full flex-col justify-center overflow-hidden"
     >
       <Image
-        src="/work/off-the-track-featured.jpg"
+        src="/work/concerts/off-the-track/off-the-track-featured.jpg"
         alt="Off The Track — pit shot from the live set"
         fill
         className="object-cover"

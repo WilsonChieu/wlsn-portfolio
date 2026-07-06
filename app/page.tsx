@@ -7,8 +7,11 @@ import Featured from "@/components/Featured";
 import About from "@/components/About";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import { getGenres } from "@/lib/works";
 
 export default function Home() {
+  const genres = getGenres();
+
   return (
     <LoaderProvider>
       <Loader />
@@ -17,7 +20,7 @@ export default function Home() {
         <Featured />
         <div className="h-16 md:h-24" />
         <Marquee />
-        <WorkList />
+        <WorkList genres={genres} />
         <About />
         <Contact />
       </main>
