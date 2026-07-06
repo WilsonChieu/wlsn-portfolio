@@ -1,13 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useLoaderComplete, useLoaderPlayedIntro } from "./LoaderContext";
-import { lineReveal, easeStandard, heroStartDelay } from "@/lib/motion";
+import { useLoaderComplete } from "./LoaderContext";
+import { lineReveal, easeStandard } from "@/lib/motion";
 
 export default function Hero() {
   const loaderComplete = useLoaderComplete();
-  const playedIntro = useLoaderPlayedIntro();
-  const syncDelay = playedIntro ? heroStartDelay : 0;
 
   return (
     <section
@@ -26,7 +24,6 @@ export default function Hero() {
             variants={lineReveal}
             initial="hidden"
             animate={loaderComplete ? "visible" : "hidden"}
-            transition={{ duration: 0.9, ease: easeStandard, delay: syncDelay }}
           >
             WLSN
           </motion.span>
@@ -37,7 +34,7 @@ export default function Hero() {
             variants={lineReveal}
             initial="hidden"
             animate={loaderComplete ? "visible" : "hidden"}
-            transition={{ duration: 0.9, ease: easeStandard, delay: syncDelay + 0.12 }}
+            transition={{ delay: 0.12 }}
           >
             WLSN
           </motion.span>
@@ -48,7 +45,7 @@ export default function Hero() {
         className="mt-8 max-w-md font-body text-base text-ink/80 md:text-lg"
         initial={{ opacity: 0, y: 16 }}
         animate={loaderComplete ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.8, ease: easeStandard, delay: syncDelay + 0.4 }}
+        transition={{ duration: 0.8, ease: easeStandard, delay: 0.4 }}
       >
         Wilson. Event &amp; concert photographer — talks, workshops, graduations, and live sets.
       </motion.p>
@@ -57,7 +54,7 @@ export default function Hero() {
         className="mt-16 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-ink/60"
         initial={{ opacity: 0 }}
         animate={loaderComplete ? { opacity: 1 } : {}}
-        transition={{ duration: 0.8, delay: syncDelay + 0.6 }}
+        transition={{ duration: 0.8, delay: 0.6 }}
       >
         <span>Scroll</span>
         <span className="relative h-10 w-px overflow-hidden bg-ink/15">

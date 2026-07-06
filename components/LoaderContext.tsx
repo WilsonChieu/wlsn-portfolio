@@ -4,23 +4,15 @@ import { createContext, useContext, useState } from "react";
 
 type LoaderContextValue = {
   isComplete: boolean;
-  playedIntro: boolean;
-  markComplete: (playedIntro: boolean) => void;
+  markComplete: () => void;
 };
 
 const LoaderContext = createContext<LoaderContextValue | null>(null);
 
 export function LoaderProvider({ children }: { children: React.ReactNode }) {
   const [isComplete, setIsComplete] = useState(false);
-  const [playedIntro, setPlayedIntro] = useState(false);
-
-  function markComplete(didPlayIntro: boolean) {
-    setPlayedIntro(didPlayIntro);
-    setIsComplete(true);
-  }
-
   return (
-    <LoaderContext.Provider value={{ isComplete, playedIntro, markComplete }}>
+    <LoaderContext.Provider value={{ isComplete, markComplete: () => setIsComplete(true) }}>
       {children}
     </LoaderContext.Provider>
   );
@@ -32,13 +24,7 @@ export function useLoaderComplete(): boolean {
   return ctx.isComplete;
 }
 
-export function useLoaderPlayedIntro(): boolean {
-  const ctx = useContext(LoaderContext);
-  if (!ctx) throw new Error("useLoaderPlayedIntro must be used within LoaderProvider");
-  return ctx.playedIntro;
-}
-
-export function useMarkLoaderComplete(): (playedIntro: boolean) => void {
+export function useMarkLoaderComplete(): () => void {
   const ctx = useContext(LoaderContext);
   if (!ctx) throw new Error("useMarkLoaderComplete must be used within LoaderProvider");
   return ctx.markComplete;
