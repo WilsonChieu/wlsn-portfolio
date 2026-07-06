@@ -82,7 +82,7 @@ export function getGenres(): WorkGenre[] {
             slug: eventSlug,
             title: toTitle(eventSlug),
             genreSlug,
-            cover: explicitEventCover || images[0]?.src ?? "",
+            cover: explicitEventCover || images[0]?.src || "",
             images,
           };
         });
@@ -98,7 +98,7 @@ export function getGenres(): WorkGenre[] {
         slug: genreSlug,
         title: label.title,
         meta: label.meta,
-        cover: explicitGenreCover || events[0]?.cover ?? "",
+        cover: explicitGenreCover || events[0]?.cover || "",
         events,
       };
     });
