@@ -34,7 +34,3 @@ export const doorEase = easeLoader;
 // door animation to sync against, so these delays are skipped entirely.
 export const heroStartDelay = loaderContentExitDuration;
 export const navRevealDelay = 0.9;
-
-// Genre panels (Selected Work section)
-export const panelExpandDuration = 0.7;
-export const panelContentSwapDuration = 0.4;
