@@ -3,6 +3,14 @@ import path from "path";
 
 const WORK_DIR = path.join(process.cwd(), "public", "work");
 const IMAGE_EXTS = /\.(jpg|jpeg|png|webp|gif)$/i;
+const COVER_NAMES = ["cover.jpg", "cover.jpeg", "cover.png", "cover.webp"];
+
+function findExplicitCover(dir: string, urlBase: string): string {
+  for (const name of COVER_NAMES) {
+    if (fs.existsSync(path.join(dir, name))) return `${urlBase}/${name}`;
+  }
+  return "";
+}
 
 const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
   concerts:   { title: "Concerts",   meta: "Live Sets"      },
@@ -56,9 +64,14 @@ export function getGenres(): WorkGenre[] {
           const eventSlug = eventDir.name;
           const eventPath = path.join(genrePath, eventSlug);
 
+          const explicitEventCover = findExplicitCover(
+            eventPath,
+            `/work/${genreSlug}/${eventSlug}`
+          );
+
           const images: WorkImage[] = fs
             .readdirSync(eventPath)
-            .filter((f) => IMAGE_EXTS.test(f))
+            .filter((f) => IMAGE_EXTS.test(f) && !COVER_NAMES.includes(f.toLowerCase()))
             .sort()
             .map((f) => ({
               src: `/work/${genreSlug}/${eventSlug}/${f}`,
@@ -69,7 +82,7 @@ export function getGenres(): WorkGenre[] {
             slug: eventSlug,
             title: toTitle(eventSlug),
             genreSlug,
-            cover: images[0]?.src ?? "",
+            cover: explicitEventCover || images[0]?.src ?? "",
             images,
           };
         });
@@ -79,11 +92,13 @@ export function getGenres(): WorkGenre[] {
         meta: toTitle(genreSlug),
       };
 
+      const explicitGenreCover = findExplicitCover(genrePath, `/work/${genreSlug}`);
+
       return {
         slug: genreSlug,
         title: label.title,
         meta: label.meta,
-        cover: events[0]?.cover ?? "",
+        cover: explicitGenreCover || events[0]?.cover ?? "",
         events,
       };
     });
