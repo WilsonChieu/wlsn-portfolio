@@ -1,7 +1,6 @@
 import { LoaderProvider } from "@/components/LoaderContext";
 import Loader from "@/components/Loader";
 import Nav from "@/components/Nav";
-import Hero from "@/components/Hero";
 import Marquee from "@/components/Marquee";
 import WorkList from "@/components/WorkList";
 import Featured from "@/components/Featured";
@@ -15,10 +14,10 @@ export default function Home() {
       <Loader />
       <Nav />
       <main>
-        <Hero />
+        <Featured />
+        <div className="h-16 md:h-24" />
         <Marquee />
         <WorkList />
-        <Featured />
         <About />
         <Contact />
       </main>
