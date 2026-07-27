@@ -17,13 +17,13 @@ export default function Featured() {
           on screens larger than the source image, the gradient behind it
           shows through at the edges instead of a stretched, blurry photo. */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative h-full w-full max-w-[2400px] max-h-[1600px]">
+        <div className="relative h-full w-full max-w-[1800px] max-h-[1273px]">
           <Image
-            src="/work/concerts/off-the-track/off-the-track.jpg"
+            src="/work/concerts/off-the-track/cover.jpg"
             alt="Off The Track — pit shot from the live set"
             fill
             className="object-cover"
-            sizes="(max-width: 2400px) 100vw, 2400px"
+            sizes="(max-width: 1800px) 100vw, 1800px"
             quality={90}
             priority={true}
           />

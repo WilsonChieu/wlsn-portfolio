@@ -12,6 +12,68 @@ function findExplicitCover(dir: string, urlBase: string): string {
   return "";
 }
 
+function readImageDimensions(absPath: string): { width: number; height: number } | null {
+  try {
+    const buf = fs.readFileSync(absPath);
+    if (buf.length < 24) return null;
+
+    // PNG
+    if (buf.readUInt32BE(0) === 0x89504e47) {
+      return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    }
+
+    // GIF
+    if (buf.toString("ascii", 0, 3) === "GIF") {
+      return { width: buf.readUInt16LE(6), height: buf.readUInt16LE(8) };
+    }
+
+    // JPEG — scan markers for the first Start-Of-Frame segment
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+      let i = 2;
+      while (i + 9 < buf.length) {
+        if (buf[i] !== 0xff) {
+          i++;
+          continue;
+        }
+        const marker = buf[i + 1];
+        const isSOF = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+        if (isSOF) {
+          return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+        }
+        const len = buf.readUInt16BE(i + 2);
+        i += 2 + len;
+      }
+      return null;
+    }
+
+    // WebP
+    if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") {
+      const format = buf.toString("ascii", 12, 16);
+      if (format === "VP8 ") {
+        return { width: buf.readUInt16LE(26) & 0x3fff, height: buf.readUInt16LE(28) & 0x3fff };
+      }
+      if (format === "VP8L") {
+        const b = buf.readUInt32LE(21);
+        return { width: (b & 0x3fff) + 1, height: ((b >> 14) & 0x3fff) + 1 };
+      }
+      if (format === "VP8X") {
+        const width = (buf[24] | (buf[25] << 8) | (buf[26] << 16)) + 1;
+        const height = (buf[27] | (buf[28] << 8) | (buf[29] << 16)) + 1;
+        return { width, height };
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getOrientation(absPath: string): "portrait" | "landscape" {
+  const dims = readImageDimensions(absPath);
+  return dims && dims.height > dims.width ? "portrait" : "landscape";
+}
+
 const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
   concerts:   { title: "Concerts",   meta: "Live Sets"      },
   graduation: { title: "Graduation", meta: "Graduation"     },
@@ -22,6 +84,7 @@ const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
 export interface WorkImage {
   src: string;
   alt: string;
+  orientation: "portrait" | "landscape";
 }
 
 export interface WorkEvent {
@@ -72,10 +135,11 @@ export function getGenres(): WorkGenre[] {
           const images: WorkImage[] = fs
             .readdirSync(eventPath)
             .filter((f) => IMAGE_EXTS.test(f) && !COVER_NAMES.includes(f.toLowerCase()))
-            .sort()
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
             .map((f) => ({
               src: `/work/${genreSlug}/${eventSlug}/${f}`,
               alt: `${toTitle(eventSlug)} — ${f.replace(IMAGE_EXTS, "")}`,
+              orientation: getOrientation(path.join(eventPath, f)),
             }));
 
           return {
