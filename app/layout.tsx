@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Space_Grotesk, Manrope, IBM_Plex_Mono } from "next/font/google";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import "./globals.css";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-body bg-paper text-ink antialiased">
         <SmoothScrollProvider>{children}</SmoothScrollProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
