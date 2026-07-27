@@ -72,7 +72,7 @@ function readImageDimensions(absPath: string): { width: number; height: number }
 const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
   concerts:   { title: "Concerts",   meta: "Live Sets"      },
   graduation: { title: "Graduation", meta: "Graduation"     },
-  talks:      { title: "Talks",      meta: "Speaker Series" },
+  events:      { title: "Events",      meta: "Event" },
   workshops:  { title: "Workshops",  meta: "Workshops"      },
 };
 
