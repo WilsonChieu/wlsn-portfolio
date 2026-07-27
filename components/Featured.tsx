@@ -73,22 +73,6 @@ export default function Featured() {
         >
           Wilson. Event &amp; concert photographer — talks, workshops, graduations, and live sets.
         </motion.p>
-
-        <motion.div
-          className="mt-16 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] text-paper/60"
-          initial={{ opacity: 0 }}
-          animate={loaderComplete ? { opacity: 1 } : {}}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          <span>Scroll</span>
-          <span className="relative h-10 w-px overflow-hidden bg-paper/20">
-            <motion.span
-              className="absolute inset-x-0 top-0 h-1/2 bg-olive-soft"
-              animate={{ y: ["-100%", "200%"] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </span>
-        </motion.div>
       </div>
 
       {/* Featured label bottom-right */}
