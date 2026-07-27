@@ -11,16 +11,24 @@ export default function Featured() {
   return (
     <section
       id="hero"
-      className="relative flex h-screen w-full flex-col justify-center overflow-hidden"
+      className="relative flex h-screen w-full flex-col justify-center overflow-hidden bg-gradient-to-br from-ink via-ink to-[#222319]"
     >
-      <Image
-        src="/work/concerts/off-the-track/off-the-track.jpg"
-        alt="Off The Track — pit shot from the live set"
-        fill
-        className="object-cover"
-        sizes="100vw"
-        priority={true}
-      />
+      {/* Photo, capped at its native resolution so it's never upscaled —
+          on screens larger than the source image, the gradient behind it
+          shows through at the edges instead of a stretched, blurry photo. */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative h-full w-full max-w-[2400px] max-h-[1600px]">
+          <Image
+            src="/work/concerts/off-the-track/off-the-track.jpg"
+            alt="Off The Track — pit shot from the live set"
+            fill
+            className="object-cover"
+            sizes="(max-width: 2400px) 100vw, 2400px"
+            quality={90}
+            priority={true}
+          />
+        </div>
+      </div>
 
       {/* Overlay */}
       <div className="absolute inset-0 bg-ink/40" aria-hidden />
