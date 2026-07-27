@@ -723,7 +723,7 @@ import { fadeUp } from "@/lib/motion";
 
 const ROWS = [
   { title: "Off The Track", meta: "CONCERT · LIVE SET 2026", image: "/work/off-the-track.jpg" },
-  { title: "Graduation Season", meta: "GRADUATION", image: "/work/graduation-season.jpg" },
+  { title: "Graduation Season", meta: "GRADUATION", image: "/work/graduation/kenneth-lea/cover.jpg" },
   { title: "Events", meta: "EVENTS", image: "/work/speaker-series.jpg" },
   { title: "Hands-On Sessions", meta: "WORKSHOPS", image: "/work/hands-on-sessions.jpg" },
 ];
