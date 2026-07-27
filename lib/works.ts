@@ -6,10 +6,12 @@ const IMAGE_EXTS = /\.(jpg|jpeg|png|webp|gif)$/i;
 const COVER_NAMES = ["cover.jpg", "cover.jpeg", "cover.png", "cover.webp"];
 
 function findExplicitCover(dir: string, urlBase: string): string {
-  for (const name of COVER_NAMES) {
-    if (fs.existsSync(path.join(dir, name))) return `${urlBase}/${name}`;
-  }
-  return "";
+  // Case-insensitive match against the real on-disk filename — a plain
+  // existsSync(lowercase name) check silently misses files like cover.JPG
+  // on Vercel's case-sensitive filesystem, even though it works locally
+  // on case-insensitive Windows/macOS.
+  const match = fs.readdirSync(dir).find((f) => COVER_NAMES.includes(f.toLowerCase()));
+  return match ? `${urlBase}/${match}` : "";
 }
 
 function readImageDimensions(absPath: string): { width: number; height: number } | null {
