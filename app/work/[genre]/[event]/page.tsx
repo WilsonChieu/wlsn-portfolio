@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEvent, getGenres } from "@/lib/works";
+import ScrollHeader from "@/components/ScrollHeader";
 
 export function generateStaticParams() {
   return getGenres().flatMap((g) =>
@@ -23,7 +24,7 @@ export default function EventPage({ params }: { params: { genre: string; event: 
 
   return (
     <div className="min-h-screen bg-paper">
-      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-6 py-6 md:px-12 md:py-8">
+      <ScrollHeader>
         <Link href="/" className="font-display text-lg font-bold uppercase tracking-tight focus-ring">
           CRISP<span className="text-olive">TAKES</span>
         </Link>
@@ -36,7 +37,7 @@ export default function EventPage({ params }: { params: { genre: string; event: 
           </svg>
           {genreLabel}
         </Link>
-      </header>
+      </ScrollHeader>
 
       {/* Hero */}
       <div className="relative h-[60vh] w-full overflow-hidden md:h-[75vh]">

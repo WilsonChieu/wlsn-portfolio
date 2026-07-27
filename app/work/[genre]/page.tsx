@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGenre, getGenres } from "@/lib/works";
+import ScrollHeader from "@/components/ScrollHeader";
 
 export function generateStaticParams() {
   return getGenres().map((g) => ({ genre: g.slug }));
@@ -19,7 +20,7 @@ export default function GenrePage({ params }: { params: { genre: string } }) {
 
   return (
     <div className="min-h-screen bg-paper">
-      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-6 py-6 md:px-12 md:py-8">
+      <ScrollHeader>
         <Link href="/" className="font-display text-lg font-bold uppercase tracking-tight focus-ring">
           CRISP<span className="text-olive">TAKES</span>
         </Link>
@@ -32,7 +33,7 @@ export default function GenrePage({ params }: { params: { genre: string } }) {
           </svg>
           All Work
         </Link>
-      </header>
+      </ScrollHeader>
 
       <div className="px-6 pb-16 pt-40 md:px-12 md:pt-48">
         <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">
