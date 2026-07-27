@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
+import BookingModal from "./BookingModal";
 
 export default function Contact() {
   return (
@@ -34,16 +35,14 @@ export default function Contact() {
         Slots go fast during grad + gig season
       </motion.p>
 
-      <motion.a
-        href="mailto:crisptakes@gmail.com?subject=Booking%20Inquiry%20%E2%80%94%20WLSN"
-        className="focus-ring mt-10 rounded-full bg-olive px-8 py-4 font-mono text-[12px] uppercase tracking-[0.16em] text-ink transition-transform hover:scale-105"
+      <motion.div
         variants={fadeUp}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
       >
-        Book a Shoot →
-      </motion.a>
+        <BookingModal />
+      </motion.div>
     </section>
   );
 }

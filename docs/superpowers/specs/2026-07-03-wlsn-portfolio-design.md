@@ -62,7 +62,7 @@ Exact filenames (client will overwrite these 1:1 with real photos):
 
 - `public/work/off-the-track.jpg` — 1200×800 (work list thumbnail, CONCERT · LIVE SET 2026)
 - `public/work/graduation-season.jpg` — 1200×800 (GRADUATION)
-- `public/work/speaker-series.jpg` — 1200×800 (TALKS)
+- `public/work/speaker-series.jpg` — 1200×800 (EVENTS)
 - `public/work/hands-on-sessions.jpg` — 1200×800 (WORKSHOPS)
 - `public/work/off-the-track-featured.jpg` — 2400×1350 (full-bleed Featured panel, best pit shot)
 

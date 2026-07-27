@@ -356,7 +356,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "WLSN — Event & Concert Photography",
   description:
-    "Wilson (CRISPTAKES) shoots talks, workshops, graduations, and concerts. Book a shoot.",
+    "Wilson (CRISPTAKES) shoots events, workshops, graduations, and concerts. Book a shoot.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -631,7 +631,7 @@ export default function Hero() {
         animate={loaderComplete ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.8, ease: easeStandard, delay: 0.4 }}
       >
-        Wilson. Event &amp; concert photographer — talks, workshops, graduations, and live sets.
+        Wilson. Event &amp; concert photographer — events, workshops, graduations, and live sets.
       </motion.p>
 
       <motion.div
@@ -684,7 +684,7 @@ git commit -m "Add Nav and Hero components with loader-synced entrance"
 ```tsx
 "use client";
 
-const ITEMS = ["TALKS", "WORKSHOPS", "GRADUATIONS", "CONCERTS"];
+const ITEMS = ["EVENTS", "WORKSHOPS", "GRADUATIONS", "CONCERTS"];
 
 function Track() {
   return (
@@ -724,7 +724,7 @@ import { fadeUp } from "@/lib/motion";
 const ROWS = [
   { title: "Off The Track", meta: "CONCERT · LIVE SET 2026", image: "/work/off-the-track.jpg" },
   { title: "Graduation Season", meta: "GRADUATION", image: "/work/graduation-season.jpg" },
-  { title: "Speaker Series", meta: "TALKS", image: "/work/speaker-series.jpg" },
+  { title: "Events", meta: "EVENTS", image: "/work/speaker-series.jpg" },
   { title: "Hands-On Sessions", meta: "WORKSHOPS", image: "/work/hands-on-sessions.jpg" },
 ];
 
