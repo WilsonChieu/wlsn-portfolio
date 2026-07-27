@@ -65,19 +65,15 @@ export default function EventPage({ params }: { params: { genre: string; event: 
 
       {/* Gallery */}
       <main className="px-6 py-16 md:px-12 md:py-24">
-        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
+        <div className="columns-1 gap-4 sm:columns-2 md:gap-6 lg:columns-3">
           {event.images.map((img, i) => (
-            <div
-              key={i}
-              className={`relative overflow-hidden ${
-                img.orientation === "portrait" ? "aspect-[3/4]" : "aspect-[4/3]"
-              }`}
-            >
+            <div key={i} className="mb-4 break-inside-avoid overflow-hidden md:mb-6">
               <Image
                 src={img.src}
                 alt={img.alt}
-                fill
-                className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:scale-[1.02]"
+                width={img.width}
+                height={img.height}
+                className="w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:scale-[1.02]"
                 sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
               />
             </div>

@@ -69,11 +69,6 @@ function readImageDimensions(absPath: string): { width: number; height: number }
   }
 }
 
-function getOrientation(absPath: string): "portrait" | "landscape" {
-  const dims = readImageDimensions(absPath);
-  return dims && dims.height > dims.width ? "portrait" : "landscape";
-}
-
 const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
   concerts:   { title: "Concerts",   meta: "Live Sets"      },
   graduation: { title: "Graduation", meta: "Graduation"     },
@@ -84,7 +79,8 @@ const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
 export interface WorkImage {
   src: string;
   alt: string;
-  orientation: "portrait" | "landscape";
+  width: number;
+  height: number;
 }
 
 export interface WorkEvent {
@@ -136,11 +132,15 @@ export function getGenres(): WorkGenre[] {
             .readdirSync(eventPath)
             .filter((f) => IMAGE_EXTS.test(f) && !COVER_NAMES.includes(f.toLowerCase()))
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
-            .map((f) => ({
-              src: `/work/${genreSlug}/${eventSlug}/${f}`,
-              alt: `${toTitle(eventSlug)} — ${f.replace(IMAGE_EXTS, "")}`,
-              orientation: getOrientation(path.join(eventPath, f)),
-            }));
+            .map((f) => {
+              const dims = readImageDimensions(path.join(eventPath, f));
+              return {
+                src: `/work/${genreSlug}/${eventSlug}/${f}`,
+                alt: `${toTitle(eventSlug)} — ${f.replace(IMAGE_EXTS, "")}`,
+                width: dims?.width ?? 1200,
+                height: dims?.height ?? 800,
+              };
+            });
 
           return {
             slug: eventSlug,
