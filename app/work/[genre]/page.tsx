@@ -20,7 +20,7 @@ export default function GenrePage({ params }: { params: { genre: string } }) {
 
   return (
     <div className="min-h-screen bg-paper">
-      <ScrollHeader>
+      <ScrollHeader overDark={false}>
         <Link href="/" className="font-display text-lg font-bold uppercase tracking-tight focus-ring">
           CRISP<span className="text-olive">TAKES</span>
         </Link>
