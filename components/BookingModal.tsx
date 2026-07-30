@@ -232,7 +232,7 @@ export default function BookingModal() {
 
                   <div className="flex flex-col gap-2">
                     <span className={labelClass}>Do you have a specific date?</span>
-                    <div className="relative inline-flex w-fit rounded-full border border-olive p-1">
+                    <div className="relative mx-auto inline-flex w-fit rounded-full border border-olive p-1">
                       <motion.div
                         className="absolute inset-y-1 left-1 w-16 rounded-full bg-olive"
                         animate={{ x: hasDate === "yes" ? 0 : "4rem" }}
