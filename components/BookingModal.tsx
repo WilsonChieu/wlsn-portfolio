@@ -17,11 +17,14 @@ export default function BookingModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [referral, setReferral] = useState(REFERRAL_OPTIONS[0]);
   const [referralOther, setReferralOther] = useState("");
   const [purpose, setPurpose] = useState(PURPOSE_OPTIONS[0]);
   const [purposeOther, setPurposeOther] = useState("");
+  const [hasDate, setHasDate] = useState<"yes" | "no">("no");
+  const [date, setDate] = useState("");
   const [details, setDetails] = useState("");
 
   useEffect(() => {
@@ -40,11 +43,14 @@ export default function BookingModal() {
   function reset() {
     setStatus("idle");
     setName("");
+    setEmail("");
     setPhone("");
     setReferral(REFERRAL_OPTIONS[0]);
     setReferralOther("");
     setPurpose(PURPOSE_OPTIONS[0]);
     setPurposeOther("");
+    setHasDate("no");
+    setDate("");
     setDetails("");
   }
 
@@ -63,9 +69,11 @@ export default function BookingModal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          email,
           phone,
           referral: referral === "Other" ? referralOther || "Other" : referral,
           purpose: purpose === "Other" ? purposeOther || "Other" : purpose,
+          date: hasDate === "yes" ? date : "",
           details,
         }),
       });
@@ -126,7 +134,8 @@ export default function BookingModal() {
                     Got it.
                   </h2>
                   <p className="font-body text-ink/70">
-                    Your inquiry is in — I&apos;ll get back to you shortly.
+                    Your inquiry is in and pending review — check your email for a confirmation,
+                    I&apos;ll follow up within 48 hours.
                   </p>
                 </div>
               ) : (
@@ -145,6 +154,17 @@ export default function BookingModal() {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-2">
+                    <span className={labelClass}>Email</span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className={inputClass}
                     />
                   </label>
@@ -209,6 +229,48 @@ export default function BookingModal() {
                       />
                     )}
                   </label>
+
+                  <div className="flex flex-col gap-2">
+                    <span className={labelClass}>Do you have a specific date?</span>
+                    <div className="relative inline-flex w-fit rounded-full border border-line p-1">
+                      <motion.div
+                        className="absolute inset-y-1 left-1 w-16 rounded-full bg-olive"
+                        animate={{ x: hasDate === "yes" ? "4rem" : 0 }}
+                        transition={{ duration: 0.3, ease: easeStandard }}
+                      />
+                      {(["no", "yes"] as const).map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setHasDate(opt)}
+                          className={`focus-ring relative z-10 w-16 rounded-full py-2 text-center font-mono text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                            hasDate === opt ? "text-ink" : "text-ink/50 hover:text-olive"
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                    <AnimatePresence initial={false}>
+                      {hasDate === "yes" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3, ease: easeStandard }}
+                          className="overflow-hidden"
+                        >
+                          <input
+                            type="date"
+                            required
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className={`${inputClass} mt-2`}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
                   <label className="flex flex-col gap-2">
                     <span className={labelClass}>Anything else? (optional)</span>
