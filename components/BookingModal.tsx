@@ -232,13 +232,13 @@ export default function BookingModal() {
 
                   <div className="flex flex-col gap-2">
                     <span className={labelClass}>Do you have a specific date?</span>
-                    <div className="relative inline-flex w-fit rounded-full border border-line p-1">
+                    <div className="relative inline-flex w-fit rounded-full border border-olive p-1">
                       <motion.div
                         className="absolute inset-y-1 left-1 w-16 rounded-full bg-olive"
-                        animate={{ x: hasDate === "yes" ? "4rem" : 0 }}
-                        transition={{ duration: 0.3, ease: easeStandard }}
+                        animate={{ x: hasDate === "yes" ? 0 : "4rem" }}
+                        transition={{ type: "spring", stiffness: 500, damping: 26, mass: 0.7 }}
                       />
-                      {(["no", "yes"] as const).map((opt) => (
+                      {(["yes", "no"] as const).map((opt) => (
                         <button
                           key={opt}
                           type="button"
