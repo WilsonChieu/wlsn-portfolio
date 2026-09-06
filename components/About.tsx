@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
 
-const CHIPS = ["EVENTS", "WORKSHOPS", "GRADUATIONS", "CONCERTS", "48HR SNEAK PEEK"];
+const CHIPS = ["EVENTS", "GRADUATIONS", "CONCERTS", "48HR SNEAK PEEK"];
 
 export default function About() {
   return (

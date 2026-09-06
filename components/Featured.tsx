@@ -71,7 +71,7 @@ export default function Featured() {
           animate={loaderComplete ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, ease: easeStandard, delay: 0.4 }}
         >
-          Wilson. Event &amp; concert photographer — events, workshops, graduations, and live sets.
+          Wilson. Event &amp; concert photographer — events, graduations, and live sets.
         </motion.p>
       </div>
 

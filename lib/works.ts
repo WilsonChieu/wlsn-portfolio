@@ -75,7 +75,6 @@ const GENRE_LABELS: Record<string, { title: string; meta: string }> = {
   concerts:   { title: "Concerts",   meta: "Live Sets"      },
   graduation: { title: "Graduation", meta: "Graduation"     },
   events:      { title: "Events",      meta: "Event" },
-  workshops:  { title: "Workshops",  meta: "Workshops"      },
 };
 
 export interface WorkImage {

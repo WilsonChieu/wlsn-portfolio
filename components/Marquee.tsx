@@ -1,6 +1,6 @@
 "use client";
 
-const ITEMS = ["EVENTS", "WORKSHOPS", "GRADUATIONS", "CONCERTS"];
+const ITEMS = ["EVENTS", "GRADUATIONS", "CONCERTS"];
 
 function SparkleIcon() {
   return (

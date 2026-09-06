@@ -29,7 +29,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "WLSN — Event & Concert Photography",
   description:
-    "Wilson (CRISPTAKES) shoots events, workshops, graduations, and concerts. Book a shoot.",
+    "Wilson (CRISPTAKES) shoots events, graduations, and concerts. Book a shoot.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
