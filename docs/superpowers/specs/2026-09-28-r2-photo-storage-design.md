@@ -1,7 +1,7 @@
 # R2 Photo Storage + Admin Uploads — Design Spec
 
-Status: design agreed in chat with Wilson (2026-09-28); this document awaits his review before an
-implementation plan is written.
+Status: implemented and live (2026-09-28/29); plan: `docs/superpowers/plans/2026-09-28-r2-photo-storage.md`.
+`public/work/` and the one-time migration script have since been removed from the repo.
 
 ## 1. Problem & goal
 

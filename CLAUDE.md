@@ -3,75 +3,93 @@
 ## Overview
 
 WLSN (CRISPTAKES) — a Next.js photography portfolio site (events, concerts,
-graduations). No CMS, no database: the entire "work" gallery is derived from
-the filesystem at build/request time from `public/work/`. A booking button
-links straight out to WhatsApp; there is no backend/API layer.
+graduations). No CMS, no database: photos and the gallery structure live in a
+Cloudflare R2 bucket, managed through a password-protected admin area. A
+booking button links straight out to WhatsApp.
 
 **Stack:** Next.js 14 (App Router), React 18, TypeScript (strict), Tailwind
-CSS, Framer Motion, Lenis (smooth scroll). Deployed on Vercel, auto-deploying
-from `master`.
+CSS, Framer Motion, Lenis (smooth scroll), Cloudflare R2 (`@aws-sdk/client-s3`),
+Sonner (admin toasts). Deployed on Vercel as **two projects from the same
+`master` branch** (see "Two deployments" below).
 
 ## Commands
 
 ```bash
-npm run dev      # start dev server (localhost:3000)
+npm run dev      # start dev server (localhost:3000); needs .env.local (see .env.example)
 npm run build    # production build — also type-checks and lints
 npm run start    # serve a production build
 npm run lint     # eslint (next/core-web-vitals + next/typescript)
+npm test         # vitest — unit tests for the pure helpers in lib/
 ```
 
-There is no test suite/framework in this repo. Verify changes by running
-`npm run build` and checking the page in a browser — don't claim something
-works without doing both.
+Verify changes with `npm test`, `npm run build` and a browser check — don't
+claim something works without all three. The build reads the R2 manifests, so
+it needs the R2 env vars; it also refuses to run without the photo base URL.
 
 ## Project structure
 
 ```
 app/
-  page.tsx                    # landing page (assembles the components below)
-  layout.tsx                  # root layout, fonts, metadata
-  work/[genre]/page.tsx       # genre gallery (e.g. /work/concerts)
-  work/[genre]/[event]/page.tsx  # single event's photo gallery
-components/                   # one file per component, PascalCase, default export
+  page.tsx                       # landing page (assembles the components below)
+  layout.tsx                     # root layout, fonts, metadata
+  work/[genre]/page.tsx          # genre gallery (e.g. /work/concerts), ISR
+  work/[genre]/[event]/page.tsx  # single event's photo gallery, ISR
+  admin/                         # admin UI (login, overview, shoot editor)
+  api/admin/*                    # admin API: uploads (presign), photos, cover, events, genres, login
+  api/revalidate/route.ts        # secret-protected hook the admin calls to refresh the public site
+components/                      # one file per component, PascalCase, default export
+components/admin/                # admin-only client components (+ Sonner toaster)
 lib/
-  works.ts                    # reads public/work/ off disk — see below
-  motion.ts                   # shared Framer Motion variants/easings
-public/work/                  # the actual photo content — see convention below
-scripts/generate-placeholders.mjs  # generates placeholder images via sharp
-docs/superpowers/                  # design specs / plans from past brainstorming sessions
+  works.ts                       # reads the R2 manifests for the public pages
+  manifest.ts                    # manifest types + pure update functions
+  r2.ts                          # R2 (S3 API) client — server only
+  photo-keys.ts / image-loader.ts  # R2 key layout + next/image custom loader
+  site-mode.ts                   # which routes each deployment serves
+  storage.ts                     # 9 GB free-tier upload guard
+  upload/                        # browser-side folder collection, resize, upload
+middleware.ts                    # site-mode routing + admin session check
+docs/superpowers/                # design specs / plans from past brainstorming sessions
 ```
 
-## The `public/work/` convention (read `lib/works.ts` first)
+## Photos live in Cloudflare R2 (read `lib/works.ts` and `lib/manifest.ts` first)
+
+Photos are **not** in the repo. One public R2 bucket, `wlsn-photos` (served
+from `NEXT_PUBLIC_PHOTO_BASE_URL`, currently its `r2.dev` URL):
 
 ```
-public/work/<genre-slug>/
-  cover.jpg                   # optional explicit genre cover
-  <event-slug>/
-    cover.jpg                  # optional explicit event cover
-    01.jpg, 02.jpg, ...        # any other image (jpg/jpeg/png/webp/gif)
+_site.json                              # categories: slug, title, meta, optional cover, ordered shoot slugs
+<genre>/<event>/_event.json             # shoot: title, cover, photos [{ id, width, height, hidden? }]
+<genre>/<event>/<photoId>/w{640,1280,1920,2560,3840}.jpg   # pre-sized JPEG variants
 ```
 
-- Genres/events are just directories — **adding one is a filesystem change,
-  not a code change.**
-- Cover fallback: explicit `cover.jpg` → else first image (event) / first
-  event's cover (genre). No cover = no image, not an error.
-- Genre display titles come from `GENRE_LABELS` in `lib/works.ts` (currently
-  `concerts`, `graduation`, `events`) for the ones that need a custom
-  title/meta; anything else falls back to a title-cased version of the slug.
-  **If you add a genre folder that needs a specific display name/meta, add
-  it to `GENRE_LABELS` too.**
-- Image width/height are read directly from the file's bytes
-  (`readImageDimensions` in `lib/works.ts`, hand-rolled PNG/GIF/JPEG/WebP
-  parsing — no external lib). If you ever add a new image format, that
-  function needs a matching branch or dimensions silently fall back to
-  1200×800.
-- **Gotcha:** covers must have real resolution behind them. A cover gets
-  rendered `fill` + `object-cover` across a full-width row/hero on desktop;
-  if the source file is small (there was a real bug from a ~1800px cover
-  being upscaled and looking blurry on wide screens — mobile looked fine
-  because it never needed more pixels), it'll visibly blur on large/retina
-  screens even though it looks fine on mobile. Export covers at ≥4000px wide
-  when in doubt.
+- **Adding/removing photos, shoots and categories is done in the admin UI**,
+  not in code. Uploads are resized in the browser and PUT straight to R2 via
+  presigned URLs; originals are deliberately not stored.
+- `next/image` uses a custom loader that picks the nearest pre-built width.
+  Vercel image optimization is intentionally unused (it was hitting the Hobby
+  plan's limits).
+- A photo with `hidden: true` exists only as a cover and isn't shown in the
+  gallery. Slugs/ids are generated by `slugify()`; a shoot/category slug is
+  its URL, and there's no rename in the admin yet.
+- **Must stay on R2's free tier (10 GB).** `lib/storage.ts` refuses uploads
+  past 9 GB and the admin shows a meter; each variant's size is signed into
+  its upload URL so the guard can't be bypassed. Don't raise the limit or
+  start storing originals without Wilson agreeing to pay.
+- **Gotcha:** variants never upscale, so a small source stays small. Upload
+  covers exported at ≥4000px wide or they'll look soft on large screens.
+
+## Two deployments (`SITE_MODE`)
+
+The same code deploys to two Vercel projects; `SITE_MODE` decides what each serves:
+
+- `wlsn-portfolio` → `https://wlsn-portfolio.vercel.app` — `SITE_MODE=public`
+  (also the default when unset): the portfolio; `/admin*` and `/api/admin*` are 404.
+- `wlsn-admin` → `https://wlsn-admin.vercel.app` — `SITE_MODE=admin`: public
+  pages redirect to `/admin`. After every change it POSTs the portfolio's
+  `/api/revalidate` (shared `REVALIDATE_SECRET`, target `PUBLIC_SITE_URL`);
+  if that fails the portfolio catches up via hourly ISR, and the admin toast
+  says so.
+- Local `.env.local` uses `SITE_MODE=all` to serve both.
 
 ## Code style
 
@@ -95,26 +113,25 @@ public/work/<genre-slug>/
 - State is local `useState`/`useEffect`; the one shared context is
   `LoaderContext.tsx` (intro-loader completion flag). No Redux/Zustand/etc.
   — don't introduce a state library for something local state can do.
+- Pure logic goes in `lib/` with a Vitest test next to it (`*.test.ts`).
 - No comments unless explaining a genuinely non-obvious "why" (see the
-  existing sparse comments in `lib/works.ts` for the tone to match).
+  existing sparse comments in `lib/r2.ts` or `lib/photo-keys.ts` for the tone).
 
 ## Things to know / not do
 
-- **No backend.** The booking flow used to POST to `/api/book` with
+- **No booking backend.** The booking flow used to POST to `/api/book` with
   Notion/Discord/Resend/CallMeBot integrations; that was deliberately ripped
   out in favor of a plain `wa.me` link in `components/BookingModal.tsx`. If
   you see a reference to Notion/Discord bots elsewhere (old docs, memory),
   it's stale — don't rebuild it without being asked.
-- **Don't hand-edit `public/work/` filenames casually** — genre/event
-  routing and titles are derived from the directory names themselves
-  (`toTitle()` in `lib/works.ts`), so renaming a folder changes its URL and
-  displayed title.
-- **This repo pushes directly to `master`**, which Vercel auto-deploys from
-  — there's no staging branch or PR gate in this workflow. Be correspondingly
-  careful: build locally before pushing, and don't push half-finished work.
+- **Secrets live only in `.env.local` and Vercel project settings** — never
+  commit them. `ADMIN_PASSWORD` must be ≥16 characters or login refuses to
+  work. Changing the password doesn't end sessions; rotate
+  `ADMIN_SESSION_SECRET` for that.
+- **This repo pushes directly to `master`**, which both Vercel projects
+  auto-deploy from — there's no staging branch or PR gate in this workflow.
+  Be correspondingly careful: test and build locally before pushing, and
+  don't push half-finished work.
 - `docs/superpowers/` holds specs/plans from earlier feature work done via a
   structured brainstorming process — useful history, not living
   documentation; don't treat it as current source of truth over the code.
-- `scripts/generate-placeholders.mjs` is only for generating throwaway
-  placeholder JPEGs (e.g. for a sanitized template repo) — it's not part of
-  the build and doesn't run automatically.
