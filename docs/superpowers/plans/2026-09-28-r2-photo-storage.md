@@ -4,7 +4,7 @@
 
 **Goal:** Move all portfolio photos from `public/work/` (in git, served through Vercel image optimization) to Cloudflare R2 with pre-sized JPEG variants, and add a password-protected `/admin` where Wilson drags shoot folders in from a browser.
 
-**Architecture:** R2 holds a public bucket (resized variants + JSON manifests describing categories/shoots/photos) and a private bucket (untouched originals). The public site reads the manifests server-side through the S3 API (ISR, revalidated on every admin change) and renders photos through a custom `next/image` loader that points straight at pre-built R2 variants, so Vercel never processes an image. The admin resizes photos in the browser and uploads them directly to R2 via presigned URLs; small API routes sign URLs and edit manifests.
+**Architecture:** One public R2 bucket holds resized variants + JSON manifests describing categories/shoots/photos (originals are not stored — amended 2026-09-28 to stay on the free tier). The public site reads the manifests server-side through the S3 API (ISR, revalidated on every admin change) and renders photos through a custom `next/image` loader that points straight at pre-built R2 variants, so Vercel never processes an image. The admin resizes photos in the browser and uploads them directly to R2 via presigned URLs; small API routes sign URLs and edit manifests.
 
 **Tech Stack:** Next.js 14 App Router, TypeScript strict, Tailwind, Cloudflare R2 (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`), `pica` (browser resize), `sharp` (migration script), `tsx` (runs the TS migration script), Vitest (new).
 
@@ -14,11 +14,11 @@
 
 - Variant widths are exactly `640, 1280, 1920, 2560, 3840`; every photo has all five keys; a variant wider than the source is stored at the source's native width (never upscaled).
 - Variants are JPEG, quality 88 (`0.88` in browser, `88` + mozjpeg in `sharp`), orientation applied, metadata stripped. Keys: `<genre>/<event>/<photoId>/w<width>.jpg`.
-- Originals go only to the private bucket at `<genre>/<event>/<photoId>/original.<ext>`; the public bucket never holds an original.
+- Originals are never stored in R2 (amendment 2026-09-28). Uploads are refused when bucket bytes + incoming bytes would exceed `STORAGE_LIMIT_BYTES = 9_000_000_000` (spec §5a).
 - Manifests: `_site.json` and `<genre>/<event>/_event.json` in the public bucket, shapes exactly as in spec §3 (plus optional `hidden: true` on a photo).
 - All slugs and photo ids match `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 - Session cookie `wlsn_admin` = `<expiryUnixSeconds>.<hex HMAC-SHA256(expiry)>`, `httpOnly`, `Secure` in production, `SameSite=Strict`, 7 days.
-- Env vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BUCKET`, `R2_ORIGINALS_BUCKET`, `NEXT_PUBLIC_PHOTO_BASE_URL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`. Never committed; never pasted into chat.
+- Env vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BUCKET`, `NEXT_PUBLIC_PHOTO_BASE_URL`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`. Never committed; never pasted into chat.
 - Repo conventions (CLAUDE.md): `@/*` imports after external ones; `"use client"` only where needed; Tailwind only; `.focus-ring` on interactive elements; comments only for non-obvious "why".
 - Commits: no `Co-Authored-By` trailer (project memory). Work on branch `claude/code-folder-explanation-ac7d13`; never push to `master` until Task 15.
 - Verification per CLAUDE.md: `npm run build` **and** a browser check before claiming anything works. `npm test` runs Vitest.
@@ -29,7 +29,8 @@
 - Deleting the photo that is a shoot's cover, or a shoot that is its category's cover, must fall back to the first photo / first shoot, never a broken image — pinned in Task 4 (`removePhoto`, `removeEventFromGenre`, `clearGenreCoverIfPhoto` tests).
 - Retrying a partially failed upload (same photo committed twice) must not duplicate photos — pinned in Task 4 (`addPhotos` upsert test).
 - Forged, expired, malformed session cookies or a missing secret must be rejected without throwing — pinned in Task 5 tests.
-- Crafted admin API input (`../x`, uppercase slugs, zero/huge dimensions, empty photo list, bad extension) must be rejected, and deleting photo `ott-1` must never touch `ott-10/…` — pinned in Task 6 (validators) and Task 3 (`photoPrefix`).
+- An upload that would push storage past 9 GB must be refused with a clear message before any bytes are stored — pinned in Task 7a (`canStore` boundary tests).
+- Crafted admin API input (`../x`, uppercase slugs, zero/huge dimensions, empty photo list, bad byte counts) must be rejected, and deleting photo `ott-1` must never touch `ott-10/…` — pinned in Task 6 (validators) and Task 3 (`photoPrefix`).
 
 ---
 
@@ -1188,6 +1189,157 @@ git commit -m "Add R2 client wrapper and env template"
 
 ---
 
+### Task 7a: Drop originals, add the free-tier storage guard (amendment 2026-09-28)
+
+Wilson must not pay for R2. This removes the private originals bucket and adds a 9 GB upload limit plus a usage helper for the admin meter. Spec §3 and §5a.
+
+**Files:**
+- Create: `lib/storage.ts`, `lib/storage.test.ts`
+- Modify: `lib/admin-validate.ts`, `lib/admin-validate.test.ts` (upload photos become `{ id, bytes }`)
+- Modify: `lib/photo-keys.ts`, `lib/photo-keys.test.ts` (remove `originalKey`)
+- Modify: `lib/r2.ts` (remove `originalsBucket`, add `bucketUsageBytes`)
+- Modify: `.env.example` (remove `R2_ORIGINALS_BUCKET`)
+
+**Interfaces:**
+- Produces:
+  - `FREE_STORAGE_BYTES = 10_000_000_000`, `STORAGE_LIMIT_BYTES = 9_000_000_000`
+  - `canStore(usedBytes: number, incomingBytes: number, limit?: number): boolean`
+  - `formatGB(bytes: number): string` → e.g. `"2.53 GB"`
+  - `interface UploadRequestPhoto { id: string; bytes: number }` (replaces the Task 6 shape); `parseUploadPhotos(value: unknown): UploadRequestPhoto[] | null` — `bytes` a positive integer ≤ 500 MB
+  - `bucketUsageBytes(): Promise<number>` in `lib/r2.ts`
+- Removes: `originalKey`, `originalsBucket`, `UploadRequestPhoto.originalExt/originalType`.
+
+- [ ] **Step 1: Write the failing tests**
+
+`lib/storage.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { STORAGE_LIMIT_BYTES, canStore, formatGB } from "@/lib/storage";
+
+describe("canStore", () => {
+  it("allows uploads that land exactly on the limit", () => {
+    expect(canStore(STORAGE_LIMIT_BYTES - 100, 100)).toBe(true);
+  });
+  it("refuses uploads that would pass the limit", () => {
+    expect(canStore(STORAGE_LIMIT_BYTES - 100, 101)).toBe(false);
+    expect(canStore(STORAGE_LIMIT_BYTES + 1, 0)).toBe(false);
+  });
+  it("keeps the limit below the 10 GB free tier", () => {
+    expect(STORAGE_LIMIT_BYTES).toBeLessThan(10_000_000_000);
+  });
+  it("accepts a custom limit", () => {
+    expect(canStore(5, 5, 10)).toBe(true);
+    expect(canStore(6, 5, 10)).toBe(false);
+  });
+});
+
+describe("formatGB", () => {
+  it("formats decimal gigabytes with two decimals", () => {
+    expect(formatGB(2_530_000_000)).toBe("2.53 GB");
+    expect(formatGB(0)).toBe("0.00 GB");
+  });
+});
+```
+
+In `lib/admin-validate.test.ts`, replace the whole `describe("parseUploadPhotos", …)` block with:
+
+```ts
+describe("parseUploadPhotos", () => {
+  it("accepts valid requests", () => {
+    expect(parseUploadPhotos([{ id: "ott-1", bytes: 2_700_000 }])).toEqual([{ id: "ott-1", bytes: 2_700_000 }]);
+  });
+  it.each([
+    [[]],
+    [[{ id: "ott-1" }]],
+    [[{ id: "ott-1", bytes: 0 }]],
+    [[{ id: "ott-1", bytes: 1.5 }]],
+    [[{ id: "ott-1", bytes: 600_000_000 }]],
+    [[{ id: "ott-1", bytes: "100" }]],
+    [[{ id: "../ott", bytes: 100 }]],
+    [Array.from({ length: 51 }, (_, i) => ({ id: `p${i}`, bytes: 100 }))],
+  ])("rejects %j", (value) => {
+    expect(parseUploadPhotos(value)).toBeNull();
+  });
+});
+```
+
+In `lib/photo-keys.test.ts`, remove `originalKey` from the import, delete its assertion line, and rename that test to "builds photo and variant keys".
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npm test`
+Expected: FAIL — `@/lib/storage` missing; `parseUploadPhotos` "accepts valid requests" fails (returns null for `{ id, bytes }`).
+
+- [ ] **Step 3: Implement**
+
+`lib/storage.ts`:
+
+```ts
+export const FREE_STORAGE_BYTES = 10_000_000_000;
+// Uploads stop 1 GB short of R2's free 10 GB so a large batch can never tip the bill over.
+export const STORAGE_LIMIT_BYTES = 9_000_000_000;
+
+export function canStore(usedBytes: number, incomingBytes: number, limit = STORAGE_LIMIT_BYTES): boolean {
+  return usedBytes + incomingBytes <= limit;
+}
+
+export function formatGB(bytes: number): string {
+  return `${(bytes / 1e9).toFixed(2)} GB`;
+}
+```
+
+In `lib/admin-validate.ts`, replace the `EXT_PATTERN`/`MIME_PATTERN` constants, the `UploadRequestPhoto` interface and `parseUploadPhoto` with:
+
+```ts
+const MAX_PHOTO_BYTES = 500_000_000;
+
+export interface UploadRequestPhoto {
+  id: string;
+  bytes: number;
+}
+
+function parseUploadPhoto(value: unknown): UploadRequestPhoto | null {
+  if (!isRecord(value) || !isSlug(value.id)) return null;
+  const { bytes } = value;
+  if (typeof bytes !== "number" || !Number.isInteger(bytes) || bytes <= 0 || bytes > MAX_PHOTO_BYTES) return null;
+  return { id: value.id, bytes };
+}
+```
+
+In `lib/photo-keys.ts`, delete `originalKey`.
+
+In `lib/r2.ts`, delete `originalsBucket` and add:
+
+```ts
+export async function bucketUsageBytes(): Promise<number> {
+  let total = 0;
+  let token: string | undefined;
+  do {
+    const page = await r2().send(new ListObjectsV2Command({ Bucket: publicBucket(), ContinuationToken: token }));
+    for (const object of page.Contents ?? []) total += object.Size ?? 0;
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return total;
+}
+```
+
+In `.env.example`, delete the `R2_ORIGINALS_BUCKET=wlsn-originals` line.
+
+- [ ] **Step 4: Run tests, type-check, lint**
+
+Run: `npm test && npx tsc --noEmit && npm run lint`
+Expected: all PASS, no errors.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add lib/storage.ts lib/storage.test.ts lib/admin-validate.ts lib/admin-validate.test.ts lib/photo-keys.ts lib/photo-keys.test.ts lib/r2.ts .env.example
+git commit -m "Drop stored originals and add a 9 GB free-tier upload guard"
+```
+
+---
+
 ### Task 8: Cloudflare setup (Wilson, in the dashboard)
 
 Manual task. The agent writes out these instructions for Wilson, waits for him to confirm each part, and **never asks for key values in chat** — Wilson pastes them into `.env.local` himself.
@@ -1195,13 +1347,13 @@ Manual task. The agent writes out these instructions for Wilson, waits for him t
 **Files:**
 - Create (by Wilson, never committed): `.env.local` in the worktree root, based on `.env.example`
 
-- [ ] **Step 1: Create the buckets** — Cloudflare dashboard → R2 → *Create bucket* → `wlsn-photos`; again → `wlsn-originals`. Default location/storage class.
+- [ ] **Step 1: Create the bucket** — Cloudflare dashboard → R2 → *Create bucket* → `wlsn-photos`. Default location, **Standard** storage class (the free tier doesn't cover Infrequent Access).
 
-- [ ] **Step 2: Make only `wlsn-photos` public** — `wlsn-photos` → *Settings* → *Public Development URL* (r2.dev) → *Enable* → confirm. Copy the `https://pub-….r2.dev` URL into `NEXT_PUBLIC_PHOTO_BASE_URL`. Leave `wlsn-originals` private.
+- [ ] **Step 2: Make it public** — `wlsn-photos` → *Settings* → *Public Development URL* (r2.dev) → *Enable* → confirm. Copy the `https://pub-….r2.dev` URL into `NEXT_PUBLIC_PHOTO_BASE_URL`.
 
-- [ ] **Step 3: Create an API token** — R2 overview → *Manage API tokens* → *Create API token* → permission **Object Read & Write**, *Apply to specific buckets only* → both buckets → create. Copy *Access Key ID*, *Secret Access Key*, and the account ID (from the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`) into `.env.local`. The secret is shown once.
+- [ ] **Step 3: Create an API token** — R2 overview → *Manage API tokens* → *Create API token* → permission **Object Read & Write**, *Apply to specific buckets only* → `wlsn-photos` → create. Copy *Access Key ID*, *Secret Access Key*, and the account ID (from the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`) into `.env.local`. The secret is shown once.
 
-- [ ] **Step 4: Add CORS on both buckets** — each bucket → *Settings* → *CORS Policy* → *Add CORS policy* → JSON:
+- [ ] **Step 4: Add CORS** — `wlsn-photos` → *Settings* → *CORS Policy* → *Add CORS policy* → JSON:
 
 ```json
 [
@@ -1223,7 +1375,7 @@ Manual task. The agent writes out these instructions for Wilson, waits for him t
 Run:
 
 ```bash
-node --env-file=.env.local -e "for (const k of ['R2_ACCOUNT_ID','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_PUBLIC_BUCKET','R2_ORIGINALS_BUCKET','NEXT_PUBLIC_PHOTO_BASE_URL','ADMIN_PASSWORD','ADMIN_SESSION_SECRET']) console.log(k, process.env[k] ? 'set' : 'MISSING')"
+node --env-file=.env.local -e "for (const k of ['R2_ACCOUNT_ID','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','R2_PUBLIC_BUCKET','NEXT_PUBLIC_PHOTO_BASE_URL','ADMIN_PASSWORD','ADMIN_SESSION_SECRET']) console.log(k, process.env[k] ? 'set' : 'MISSING')"
 ```
 
 Expected: every line says `set`. Confirm `git status` does not list `.env.local` (it's ignored by `.env*.local`).
@@ -1237,8 +1389,8 @@ Expected: every line says `set`. Confirm `git status` does not list `.env.local`
 - Create: `scripts/migrate-to-r2.ts`
 
 **Interfaces:**
-- Consumes: `slugify`, `uniqueId` (Task 2); `mapLimit` (Task 2); `VARIANT_WIDTHS`, `JPEG_QUALITY`, `SITE_MANIFEST_KEY`, `eventManifestKey`, `photoKey`, `variantKey`, `originalKey` (Task 3); `EventManifest`, `GenreEntry`, `PhotoEntry`, `SiteManifest` (Task 4); `objectExists`, `originalsBucket`, `publicBucket`, `putJson`, `putObject` (Task 7).
-- Produces in R2: `_site.json`, every `_event.json`, all variants, all originals. Photo ids = `slugify(filename without extension)`, de-duplicated. `cover.*` files: if byte-identical to a gallery photo → that photo becomes the cover; otherwise uploaded as a hidden photo (id `cover`). Genre `cover.*` → `{ event, photo }` of the shoot whose cover file is byte-identical.
+- Consumes: `slugify`, `uniqueId` (Task 2); `mapLimit` (Task 2); `VARIANT_WIDTHS`, `JPEG_QUALITY`, `SITE_MANIFEST_KEY`, `eventManifestKey`, `photoKey`, `variantKey` (Task 3); `EventManifest`, `GenreEntry`, `PhotoEntry`, `SiteManifest` (Task 4); `bucketUsageBytes`, `objectExists`, `publicBucket`, `putJson`, `putObject` (Tasks 7/7a); `STORAGE_LIMIT_BYTES`, `formatGB` (Task 7a).
+- Produces in R2: `_site.json`, every `_event.json`, all variants (no originals). Photo ids = `slugify(filename without extension)`, de-duplicated. `cover.*` files: if byte-identical to a gallery photo → that photo becomes the cover; otherwise uploaded as a hidden photo (id `cover`). Genre `cover.*` → `{ event, photo }` of the shoot whose cover file is byte-identical.
 
 - [ ] **Step 1: Install tsx and add the script**
 
@@ -1256,18 +1408,11 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import type { EventManifest, GenreEntry, PhotoEntry, SiteManifest } from "@/lib/manifest";
-import {
-  JPEG_QUALITY,
-  SITE_MANIFEST_KEY,
-  VARIANT_WIDTHS,
-  eventManifestKey,
-  originalKey,
-  photoKey,
-  variantKey,
-} from "@/lib/photo-keys";
+import { JPEG_QUALITY, SITE_MANIFEST_KEY, VARIANT_WIDTHS, eventManifestKey, photoKey, variantKey } from "@/lib/photo-keys";
 import { mapLimit } from "@/lib/pool";
-import { objectExists, originalsBucket, publicBucket, putJson, putObject } from "@/lib/r2";
+import { bucketUsageBytes, objectExists, publicBucket, putJson, putObject } from "@/lib/r2";
 import { slugify, uniqueId } from "@/lib/slug";
+import { STORAGE_LIMIT_BYTES, formatGB } from "@/lib/storage";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const WORK_DIR = path.join(process.cwd(), "public", "work");
@@ -1289,17 +1434,8 @@ const PRE_UPSCALE = new Set([
   "graduation/cover.JPG",
 ]);
 
-const CONTENT_TYPES: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-};
-
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 const sha = (buf: Buffer) => createHash("sha256").update(buf).digest("hex");
-const extOf = (file: string) => path.extname(file).slice(1).toLowerCase();
 const titleCase = (slug: string) =>
   slug
     .split("-")
@@ -1324,19 +1460,13 @@ function readSource(rel: string): Buffer {
 let uploadedBytes = 0;
 let photoCount = 0;
 
-async function uploadPhoto(key: string, buf: Buffer, ext: string): Promise<{ width: number; height: number }> {
+async function uploadPhoto(key: string, buf: Buffer): Promise<{ width: number; height: number }> {
   const meta = await sharp(buf).metadata();
   const rotated = (meta.orientation ?? 1) >= 5;
   const width = rotated ? meta.height! : meta.width!;
   const height = rotated ? meta.width! : meta.height!;
   photoCount++;
   if (DRY_RUN) return { width, height };
-
-  const origKey = originalKey(key, ext);
-  if (!(await objectExists(originalsBucket(), origKey))) {
-    await putObject(originalsBucket(), origKey, buf, CONTENT_TYPES[ext] ?? "application/octet-stream");
-    uploadedBytes += buf.length;
-  }
 
   const rendered = new Map<number, Buffer>();
   for (const w of VARIANT_WIDTHS) {
@@ -1373,7 +1503,7 @@ async function migrateEvent(genre: string, event: string): Promise<{ manifest: E
 
   const photos: PhotoEntry[] = await mapLimit(gallery, 4, async (file, i) => {
     const rel = `${genre}/${event}/${file}`;
-    const dims = await uploadPhoto(photoKey(genre, event, ids[i]), readSource(rel), extOf(file));
+    const dims = await uploadPhoto(photoKey(genre, event, ids[i]), readSource(rel));
     return { id: ids[i], ...dims };
   });
 
@@ -1389,7 +1519,7 @@ async function migrateEvent(genre: string, event: string): Promise<{ manifest: E
       cover = ids[duplicateIndex];
     } else {
       cover = uniqueId("cover", taken);
-      const dims = await uploadPhoto(photoKey(genre, event, cover), readSource(rel), extOf(coverFile));
+      const dims = await uploadPhoto(photoKey(genre, event, cover), readSource(rel));
       photos.push({ id: cover, ...dims, hidden: true });
     }
   }
@@ -1432,6 +1562,8 @@ async function main() {
   }
   await putJson(SITE_MANIFEST_KEY, site);
   console.log(`Done: ${photoCount} photos, ${(uploadedBytes / 1e6).toFixed(1)} MB uploaded this run.`);
+  const used = await bucketUsageBytes();
+  console.log(`Bucket now uses ${formatGB(used)} (uploads in /admin stop at ${formatGB(STORAGE_LIMIT_BYTES)}).`);
 }
 
 main().catch((err) => {
@@ -1452,8 +1584,8 @@ Expected: one line per shoot (12 shoots across `concerts`, `events`, `graduation
 
 - [ ] **Step 5: Real run** (after Wilson's go-ahead)
 
-Run: `npm run migrate:r2` (use `run_in_background` — this uploads ~1 GB of originals plus variants and may take a while).
-Expected: `Done: … photos, … MB uploaded`. If it fails midway, re-run the same command: it skips objects that already exist.
+Run: `npm run migrate:r2` (use `run_in_background` — this generates and uploads ~1.5 GB of variants and may take a while).
+Expected: `Done: … photos, … MB uploaded` and `Bucket now uses ~1.5 GB`. If it fails midway, re-run the same command: it skips objects that already exist.
 
 - [ ] **Step 6: Spot-check**
 
@@ -1934,7 +2066,7 @@ git commit -m "Add password-protected admin login"
 - Consumes: Task 11 helpers; Task 6 validators; Task 4 manifest functions; Task 3 key helpers; Task 7 R2 functions.
 - Produces (HTTP, all JSON, all 401 without a session, errors as `{ error: string }`):
   - `POST /api/admin/genres` `{ title, meta }` → `{ slug }` (409 duplicate)
-  - `POST /api/admin/uploads` `{ genre, event, photos: [{ id, originalExt, originalType }] }` → `{ photos: [{ id, variants: [{ width, url }], original: url }] }`
+  - `POST /api/admin/uploads` `{ genre, event, photos: [{ id, bytes }] }` → `{ photos: [{ id, variants: [{ width, url }] }] }`; 507 when it would pass the 9 GB limit
   - `POST /api/admin/photos` `{ genre, event, title, coverId: string | null, photos: PhotoEntry[] }` → `{ committed: string[], missing: string[] }` (404 unknown category)
   - `DELETE /api/admin/photos` `{ genre, event, id }` → `{ ok: true }`
   - `PATCH /api/admin/cover` `{ genre, event, id }` → `{ ok: true }`
@@ -1978,8 +2110,9 @@ export async function POST(req: Request) {
 import { NextResponse } from "next/server";
 import { jsonError, readBody, requireAdmin } from "@/lib/admin-api";
 import { parseShootRef, parseUploadPhotos } from "@/lib/admin-validate";
-import { VARIANT_WIDTHS, originalKey, photoKey, variantKey } from "@/lib/photo-keys";
-import { originalsBucket, presignPut, publicBucket } from "@/lib/r2";
+import { VARIANT_WIDTHS, photoKey, variantKey } from "@/lib/photo-keys";
+import { bucketUsageBytes, presignPut, publicBucket } from "@/lib/r2";
+import { STORAGE_LIMIT_BYTES, canStore, formatGB } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -1992,6 +2125,15 @@ export async function POST(req: Request) {
   const photos = parseUploadPhotos((body as { photos?: unknown } | null)?.photos);
   if (!ref || !photos) return jsonError("Invalid upload request");
 
+  const used = await bucketUsageBytes();
+  const incoming = photos.reduce((sum, p) => sum + p.bytes, 0);
+  if (!canStore(used, incoming)) {
+    return jsonError(
+      `Storage limit reached: ${formatGB(used)} used, uploads stop at ${formatGB(STORAGE_LIMIT_BYTES)} to stay free. Delete photos to make room.`,
+      507
+    );
+  }
+
   const signed = await Promise.all(
     photos.map(async (p) => {
       const key = photoKey(ref.genre, ref.event, p.id);
@@ -2001,8 +2143,7 @@ export async function POST(req: Request) {
           url: await presignPut(publicBucket(), variantKey(key, width), "image/jpeg"),
         }))
       );
-      const original = await presignPut(originalsBucket(), originalKey(key, p.originalExt), p.originalType);
-      return { id: p.id, variants, original };
+      return { id: p.id, variants };
     })
   );
   return NextResponse.json({ photos: signed });
@@ -2025,7 +2166,7 @@ import {
   type SiteManifest,
 } from "@/lib/manifest";
 import { SITE_MANIFEST_KEY, VARIANT_WIDTHS, eventManifestKey, photoKey, photoPrefix, variantKey } from "@/lib/photo-keys";
-import { deletePrefix, getJson, objectExists, originalsBucket, publicBucket, putJson } from "@/lib/r2";
+import { deletePrefix, getJson, objectExists, publicBucket, putJson } from "@/lib/r2";
 import { isSlug } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
@@ -2090,8 +2231,7 @@ export async function DELETE(req: Request) {
   }
   revalidateSite();
 
-  const prefix = photoPrefix(photoKey(ref.genre, ref.event, id));
-  await Promise.all([deletePrefix(publicBucket(), prefix), deletePrefix(originalsBucket(), prefix)]);
+  await deletePrefix(publicBucket(), photoPrefix(photoKey(ref.genre, ref.event, id)));
   return NextResponse.json({ ok: true });
 }
 ```
@@ -2140,7 +2280,7 @@ import { jsonError, readBody, requireAdmin, revalidateSite } from "@/lib/admin-a
 import { parseShootRef } from "@/lib/admin-validate";
 import { removeEventFromGenre, type EventManifest, type SiteManifest } from "@/lib/manifest";
 import { SITE_MANIFEST_KEY, eventManifestKey, eventPrefix } from "@/lib/photo-keys";
-import { deletePrefix, getJson, originalsBucket, publicBucket, putJson } from "@/lib/r2";
+import { deletePrefix, getJson, publicBucket, putJson } from "@/lib/r2";
 
 export const dynamic = "force-dynamic";
 
@@ -2168,8 +2308,7 @@ export async function DELETE(req: Request) {
   await putJson(SITE_MANIFEST_KEY, removeEventFromGenre(site, ref.genre, ref.event));
   revalidateSite();
 
-  const prefix = eventPrefix(ref.genre, ref.event);
-  await Promise.all([deletePrefix(publicBucket(), prefix), deletePrefix(originalsBucket(), prefix)]);
+  await deletePrefix(publicBucket(), eventPrefix(ref.genre, ref.event));
   return NextResponse.json({ ok: true });
 }
 ```
@@ -2438,12 +2577,10 @@ export interface FileStatus {
 interface SignedPhoto {
   id: string;
   variants: { width: number; url: string }[];
-  original: string;
 }
 
 const COVER_FILE = /^cover\.[a-z0-9]+$/i;
 
-const extOf = (name: string) => /\.([a-z0-9]{1,5})$/i.exec(name)?.[1].toLowerCase() ?? "bin";
 const baseName = (name: string) => name.replace(/\.[^.]+$/, "");
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -2480,22 +2617,21 @@ export async function uploadShoot(job: ShootJob, onStatus: (file: File, status: 
       onStatus(file, { state: "processing" });
       const processed = await processPhoto(file);
       onStatus(file, { state: "uploading" });
-      const originalType = file.type || "application/octet-stream";
+      const bytes = processed.variants.reduce((sum, v) => sum + v.blob.size, 0);
       const {
         photos: [signed],
       } = await sendJson<{ photos: SignedPhoto[] }>("POST", "/api/admin/uploads", {
         genre: job.genre,
         event: job.event,
-        photos: [{ id, originalExt: extOf(file.name), originalType }],
+        photos: [{ id, bytes }],
       });
-      await Promise.all([
-        ...signed.variants.map((v) => {
+      await Promise.all(
+        signed.variants.map((v) => {
           const blob = processed.variants.find((p) => p.width === v.width)?.blob;
           if (!blob) throw new Error(`Missing ${v.width}px version`);
           return put(v.url, blob, "image/jpeg");
-        }),
-        put(signed.original, file, originalType),
-      ]);
+        })
+      );
       const entry: PhotoEntry = isCover
         ? { id, width: processed.width, height: processed.height, hidden: true }
         : { id, width: processed.width, height: processed.height };
@@ -2553,19 +2689,20 @@ git commit -m "Add browser-side folder collection, resizing and upload pipeline"
 - Create: `app/admin/[genre]/[event]/page.tsx`
 
 **Interfaces:**
-- Consumes: Tasks 3, 4, 7, 11, 12, 13.
+- Consumes: Tasks 3, 4, 7, 7a, 11, 12, 13.
 - Produces (`lib/admin-data.ts`, server-only):
   - `interface AdminShoot { slug: string; title: string; photoCount: number; coverKey: string | null }`
   - `interface AdminGenre { slug: string; title: string; meta: string; shoots: AdminShoot[] }`
   - `loadAdminOverview(): Promise<AdminGenre[]>`
   - `loadShoot(genre: string, event: string): Promise<EventManifest | null>`
+  - `loadStorageUsage(): Promise<number>` — bytes used in the bucket (for the meter)
 
 - [ ] **Step 1: `lib/admin-data.ts`**
 
 ```ts
 import { resolveEventCover, type EventManifest, type SiteManifest } from "@/lib/manifest";
 import { SITE_MANIFEST_KEY, eventManifestKey, photoKey } from "@/lib/photo-keys";
-import { getJson } from "@/lib/r2";
+import { bucketUsageBytes, getJson } from "@/lib/r2";
 
 export interface AdminShoot {
   slug: string;
@@ -2583,6 +2720,10 @@ export interface AdminGenre {
 
 export function loadShoot(genre: string, event: string): Promise<EventManifest | null> {
   return getJson<EventManifest>(eventManifestKey(genre, event));
+}
+
+export function loadStorageUsage(): Promise<number> {
+  return bucketUsageBytes();
 }
 
 export async function loadAdminOverview(): Promise<AdminGenre[]> {
@@ -3000,18 +3141,32 @@ import Link from "next/link";
 import LogoutButton from "@/components/admin/LogoutButton";
 import NewGenreForm from "@/components/admin/NewGenreForm";
 import UploadDrop from "@/components/admin/UploadDrop";
-import { loadAdminOverview } from "@/lib/admin-data";
+import { loadAdminOverview, loadStorageUsage } from "@/lib/admin-data";
+import { FREE_STORAGE_BYTES, STORAGE_LIMIT_BYTES, formatGB } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const genres = await loadAdminOverview();
+  const [genres, used] = await Promise.all([loadAdminOverview(), loadStorageUsage()]);
+  const nearLimit = used >= STORAGE_LIMIT_BYTES * 0.9;
 
   return (
     <div className="mx-auto max-w-5xl">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold uppercase">Admin</h1>
         <LogoutButton />
+      </div>
+
+      <div className="mt-8 max-w-md">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/60">
+          Storage: {formatGB(used)} of {formatGB(FREE_STORAGE_BYTES)} free · uploads stop at {formatGB(STORAGE_LIMIT_BYTES)}
+        </p>
+        <div className="mt-2 h-2 w-full bg-line" aria-hidden>
+          <div
+            className={`h-full ${nearLimit ? "bg-red-700" : "bg-olive"}`}
+            style={{ width: `${Math.min(100, (used / FREE_STORAGE_BYTES) * 100)}%` }}
+          />
+        </div>
       </div>
 
       <div className="mt-10">
@@ -3106,7 +3261,7 @@ Prepare a throwaway local folder `Zz Upload Test/` with ~6 photos: a normal JPG,
 4. Force a failure: DevTools → Network → Offline right after clicking Upload on a second small drop onto the shoot page; go back online → **Retry N failed** → all `done`, no duplicates in the grid.
 5. **Set as cover** on another photo → public shoot page hero changes after a reload.
 6. **Delete** one photo → gone from admin and public page; its `w640.jpg` URL now returns 404.
-7. Phone-width viewport: **Choose photos** button is usable; layout doesn't overflow horizontally.
+7. Phone-width viewport: **Choose photos** button is usable; layout doesn't overflow horizontally. The storage meter on `/admin` shows ≈1.5 GB of 10.00 GB. Limit check: temporarily set `STORAGE_LIMIT_BYTES` to `1_000_000_000` in `lib/storage.ts`, drop one photo on a shoot → it fails with "Storage limit reached …" and nothing is added; revert the constant.
 8. **Delete shoot** (type `zz-upload-test`) → back on `/admin`, shoot gone; public URL 404s.
 9. Remove the now-empty **Zz Test** category (the admin UI has no category delete in v1) with a one-off command:
 
@@ -3129,9 +3284,9 @@ git commit -m "Add admin overview and shoot pages with folder uploads"
 
 Manual/confirm-at-each-step task. Nothing is pushed to `master` until Wilson says so.
 
-- [ ] **Step 1: Environment variables** — Wilson adds all eight variables from `.env.local` in Vercel → Project → Settings → Environment Variables, for **Production** and **Preview**. (The agent lists the names; Wilson pastes the values.)
+- [ ] **Step 1: Environment variables** — Wilson adds all seven variables from `.env.local` in Vercel → Project → Settings → Environment Variables, for **Production** and **Preview**. (The agent lists the names; Wilson pastes the values.)
 
-- [ ] **Step 2: CORS for Vercel origins** — Wilson updates the CORS policy on **both** buckets to:
+- [ ] **Step 2: CORS for Vercel origins** — Wilson updates the CORS policy on `wlsn-photos` to:
 
 ```json
 [
@@ -3194,12 +3349,13 @@ Replace the "The `public/work/` convention" section with:
 ```markdown
 ## Photos live in Cloudflare R2 (read `lib/works.ts` and `lib/manifest.ts` first)
 
-Photos are **not** in the repo. Two R2 buckets:
+Photos are **not** in the repo. One public R2 bucket, `wlsn-photos` (served from
+`NEXT_PUBLIC_PHOTO_BASE_URL`): `_site.json` (categories, their titles and shoot order),
+`<genre>/<event>/_event.json` (photos with native width/height, cover), and pre-sized JPEGs
+`<genre>/<event>/<photoId>/w{640,1280,1920,2560,3840}.jpg`. Originals are deliberately not stored.
 
-- `wlsn-photos` (public, served from `NEXT_PUBLIC_PHOTO_BASE_URL`) — `_site.json` (categories,
-  their titles and shoot order), `<genre>/<event>/_event.json` (photos with native width/height,
-  cover), and pre-sized JPEGs `<genre>/<event>/<photoId>/w{640,1280,1920,2560,3840}.jpg`.
-- `wlsn-originals` (private) — untouched originals, `<…>/<photoId>/original.<ext>`.
+- **Must stay on R2's free tier (10 GB).** `lib/storage.ts` refuses uploads past 9 GB and `/admin`
+  shows a meter. Don't raise the limit or add stored originals without Wilson agreeing to pay.
 
 - **Adding/removing photos is done in `/admin`** (password login), not in code. Drop a folder on a
   category → new shoot. Uploads are resized in the browser and go straight to R2.

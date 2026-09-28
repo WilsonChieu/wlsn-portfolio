@@ -36,14 +36,12 @@ Vercel Web Analytics is already enabled), custom domain, reordering photos, rena
 
 ## 3. Storage layout
 
-Two buckets:
+One bucket, **`wlsn-photos`** (public via `r2.dev`), holding only resized, EXIF-stripped variants
+plus manifests. **Originals are not stored** (amended 2026-09-28): Wilson keeps his own camera
+originals, and skipping them nearly doubles the free-tier headroom. Generating new sizes later
+means re-uploading from his copies.
 
-- **`wlsn-photos`** (public via `r2.dev`) — only resized, EXIF-stripped variants plus manifests.
-- **`wlsn-originals`** (private, never public) — untouched original files, kept so new sizes can be
-  generated later without re-uploading. Private because originals carry EXIF (incl. GPS) and would
-  otherwise be guessable public URLs.
-
-Public bucket keys:
+Keys:
 
 ```
 _site.json
@@ -54,8 +52,6 @@ _site.json
 <genre>/<event>/<photoId>/w2560.jpg
 <genre>/<event>/<photoId>/w3840.jpg
 ```
-
-Private bucket: `<genre>/<event>/<photoId>/original.<ext>`.
 
 **Variant rule:** all five variant keys always exist. A variant wider than the source is stored at
 the source's native width (never upscaled). This keeps the image loader trivial — it never needs
@@ -170,9 +166,9 @@ photo ids (from filename without extension). Photo id collisions within a shoot 
 
 1. Decode in the browser (`createImageBitmap`, orientation from EXIF); read native width/height.
 2. Generate the five JPEG variants with `pica` (high-quality resize) → canvas encode.
-3. `POST /api/admin/uploads` → server returns presigned PUT URLs (short expiry) for the five public
-   keys and the private original key.
-4. Browser PUTs variants + original directly to R2 (no photo bytes pass through Vercel).
+3. `POST /api/admin/uploads` with the photo id and its total variant bytes → server checks the
+   storage limit (§5a) and returns presigned PUT URLs (short expiry) for the five variant keys.
+4. Browser PUTs the variants directly to R2 (no photo bytes pass through Vercel).
 5. When a shoot's batch finishes, `POST /api/admin/photos` commits the successful photos to
    `_event.json` (and creates the shoot in `_site.json` if new). The server `HeadObject`-checks
    each photo's variants before committing, then revalidates.
@@ -185,18 +181,33 @@ tolerated).
 
 - **Set cover** — `PATCH` event manifest `cover`.
 - **Delete photo** — remove from manifest first (instantly gone from the site), then delete its
-  public variants and private original. Deleting the cover resets `cover` to `null`.
-- **Delete shoot** — remove from `_site.json` first, then delete all objects under its prefix in
-  both buckets.
+  variants. Deleting the cover resets `cover` to `null`.
+- **Delete shoot** — remove from `_site.json` first, then delete all objects under its prefix.
 - **New category** — append to `_site.json`.
 - Every mutation revalidates. The R2 S3 client lives in `lib/r2.ts` (`@aws-sdk/client-s3`,
   `@aws-sdk/s3-request-presigner`); manifest read/update helpers in `lib/manifest.ts`.
+
+## 5a. Staying on the R2 free tier (added 2026-09-28)
+
+Wilson wants to pay nothing. R2's free tier is 10 GB storage, 1M Class A and 10M Class B operations
+per month, free egress; Cloudflare offers no spending cap or R2 usage alert on free accounts, so the
+site enforces its own limit:
+
+- **Limit:** uploads are refused once stored bytes + incoming bytes would exceed **9 GB**
+  (`9_000_000_000` bytes — decimal, so stricter than a binary GB; 1 GB margin below the free 10 GB).
+- **Enforcement:** `POST /api/admin/uploads` sums the bucket's object sizes (ListObjectsV2, ~1 Class A
+  op per 1,000 objects) and returns 507 with a clear message when the photo wouldn't fit. The
+  browser sends the photo's total variant size with the request.
+- **Meter:** `/admin` shows "X GB of 10 GB free storage used · uploads stop at 9 GB" with a bar.
+- Measured cost: ~2.7 MB per photo (5 variants); the current 562 photos ≈ 1.5 GB, leaving room for
+  roughly 2,800 more.
+- Operations are far from their limits (~5 writes per photo uploaded; one read per image view).
 
 ## 6. Migration script (`scripts/migrate-to-r2.mjs`)
 
 - Reads `public/work/`, builds `_site.json` (titles/meta from the current `GENRE_LABELS`, the
   graduation genre cover from `graduation/cover.JPG`) and each `_event.json`; uploads variants with
-  `sharp` (lanczos3, JPEG q88 mozjpeg) and originals to the private bucket.
+  `sharp` (lanczos3, JPEG q88 mozjpeg). Prints the bucket's total usage at the end.
 - **Blurry covers:** for `concerts/off-the-track/cover.jpg` and `graduation/kenneth-lea/cover.JPG`
   (and the identical `graduation/cover.JPG`), uses the pre-upscale versions from git
   (`799db5e^`) instead of the upscaled files, since upscaling added no detail.
@@ -214,21 +225,21 @@ R2_ACCOUNT_ID
 R2_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY
 R2_PUBLIC_BUCKET=wlsn-photos
-R2_ORIGINALS_BUCKET=wlsn-originals
 NEXT_PUBLIC_PHOTO_BASE_URL=https://pub-<hash>.r2.dev
 ADMIN_PASSWORD
 ADMIN_SESSION_SECRET
 ```
 
-Cloudflare setup (Wilson, in the dashboard, with step-by-step instructions): create both buckets,
-enable `r2.dev` public access on `wlsn-photos` only, create an R2 API token scoped to the two
-buckets (Object Read & Write), and add a CORS rule on both buckets allowing `PUT` from
+Cloudflare setup (Wilson, in the dashboard, with step-by-step instructions): create the
+`wlsn-photos` bucket, enable its `r2.dev` public access, create an R2 API token scoped to it
+(Object Read & Write), and add a CORS rule allowing `PUT` from
 `http://localhost:3000` and the production `vercel.app` origin (plus a preview origin while testing).
 
 ## 8. Testing
 
 - **Vitest (new):** `slugify`, image-loader width selection, manifest update functions (add photos,
-  delete photo incl. cover reset, set cover, add genre/shoot, id de-duplication).
+  delete photo incl. cover reset, set cover, add genre/shoot, id de-duplication), storage-limit
+  check.
 - **Manual:** `npm run build`; then in the browser against real R2 — every public page, a folder
   drop, a multi-photo upload with one forced failure + retry, set cover, delete photo, delete shoot,
   new category; check a phone-width viewport.
