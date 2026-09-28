@@ -4,23 +4,23 @@ import { notFound } from "next/navigation";
 import { getEvent, getGenres } from "@/lib/works";
 import ScrollHeader from "@/components/ScrollHeader";
 
-export function generateStaticParams() {
-  return getGenres().flatMap((g) =>
-    g.events.map((e) => ({ genre: g.slug, event: e.slug }))
-  );
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  return (await getGenres()).flatMap((g) => g.events.map((e) => ({ genre: g.slug, event: e.slug })));
 }
 
-export function generateMetadata({ params }: { params: { genre: string; event: string } }) {
-  const event = getEvent(params.genre, params.event);
+export async function generateMetadata({ params }: { params: { genre: string; event: string } }) {
+  const event = await getEvent(params.genre, params.event);
   if (!event) return {};
   return { title: `${event.title} — WLSN` };
 }
 
-export default function EventPage({ params }: { params: { genre: string; event: string } }) {
-  const event = getEvent(params.genre, params.event);
+export default async function EventPage({ params }: { params: { genre: string; event: string } }) {
+  const event = await getEvent(params.genre, params.event);
   if (!event) notFound();
 
-  const genreLabel = event.genreSlug.charAt(0).toUpperCase() + event.genreSlug.slice(1);
+  const genreLabel = event.genreTitle;
 
   return (
     <div className="min-h-screen bg-paper">

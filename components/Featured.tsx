@@ -19,12 +19,11 @@ export default function Featured() {
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="relative h-full w-full max-w-[1800px] max-h-[1273px]">
           <Image
-            src="/work/concerts/off-the-track/cover.jpg"
+            src="concerts/off-the-track/cover"
             alt="Off The Track — pit shot from the live set"
             fill
             className="object-cover"
             sizes="(max-width: 1800px) 100vw, 1800px"
-            quality={90}
             priority={true}
           />
         </div>

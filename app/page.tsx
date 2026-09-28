@@ -9,8 +9,10 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import { getGenres } from "@/lib/works";
 
-export default function Home() {
-  const genres = getGenres();
+export const revalidate = 3600;
+
+export default async function Home() {
+  const genres = await getGenres();
 
   return (
     <LoaderProvider>

@@ -4,18 +4,20 @@ import { notFound } from "next/navigation";
 import { getGenre, getGenres } from "@/lib/works";
 import ScrollHeader from "@/components/ScrollHeader";
 
-export function generateStaticParams() {
-  return getGenres().map((g) => ({ genre: g.slug }));
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  return (await getGenres()).map((g) => ({ genre: g.slug }));
 }
 
-export function generateMetadata({ params }: { params: { genre: string } }) {
-  const genre = getGenre(params.genre);
+export async function generateMetadata({ params }: { params: { genre: string } }) {
+  const genre = await getGenre(params.genre);
   if (!genre) return {};
   return { title: `${genre.title} — WLSN` };
 }
 
-export default function GenrePage({ params }: { params: { genre: string } }) {
-  const genre = getGenre(params.genre);
+export default async function GenrePage({ params }: { params: { genre: string } }) {
+  const genre = await getGenre(params.genre);
   if (!genre) notFound();
 
   return (
