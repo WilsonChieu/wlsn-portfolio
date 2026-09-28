@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/slug";
 import { filesFromDataTransfer, filesFromInput, groupFiles, type PathedFile } from "@/lib/upload/collect-files";
+import { shootNameProblems } from "@/lib/upload/shoot-names";
 import { uploadShoot, type FileStatus } from "@/lib/upload/upload-shoot";
 
 interface UploadDropProps {
   genre: string;
   target?: { event: string; title: string };
+  existingShoots?: string[];
 }
 
 interface PendingShoot {
@@ -20,9 +22,10 @@ type Phase = "idle" | "review" | "uploading" | "finished";
 
 const button = "focus-ring border border-ink px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em]";
 
-export default function UploadDrop({ genre, target }: UploadDropProps) {
+export default function UploadDrop({ genre, target, existingShoots = [] }: UploadDropProps) {
   const router = useRouter();
   const folderInput = useRef<HTMLInputElement>(null);
+  const knownIds = useRef(new Map<File, string>());
   const [dragging, setDragging] = useState(false);
   const [shoots, setShoots] = useState<PendingShoot[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
@@ -39,6 +42,7 @@ export default function UploadDrop({ genre, target }: UploadDropProps) {
     setShoots(result.groups.map((g) => ({ title: target?.title ?? g.name, files: g.files })));
     setSkipped(result.skipped);
     setStatuses(new Map());
+    knownIds.current = new Map();
     setError(result.groups.length ? null : "No photos found in what you dropped.");
     setPhase(result.groups.length ? "review" : "idle");
   }
@@ -47,18 +51,25 @@ export default function UploadDrop({ genre, target }: UploadDropProps) {
     setStatuses((prev) => new Map(prev).set(file, status));
   }
 
-  async function run(list: PendingShoot[]) {
-    if (list.some((s) => !slugify(s.title))) {
-      setError("Every shoot needs a name with at least one letter or number.");
+  const nameProblems = target ? shoots.map(() => null) : shootNameProblems(shoots.map((s) => s.title), existingShoots);
+
+  function start() {
+    if (nameProblems.some(Boolean)) {
+      setError("Fix the shoot names marked below before uploading.");
       return;
     }
+    run(shoots);
+  }
+
+  async function run(list: PendingShoot[]) {
     setPhase("uploading");
     setError(null);
     for (const shoot of list) {
       try {
         await uploadShoot(
           { genre, event: target?.event ?? slugify(shoot.title), title: shoot.title.trim(), files: shoot.files },
-          setStatus
+          setStatus,
+          knownIds.current
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -80,6 +91,7 @@ export default function UploadDrop({ genre, target }: UploadDropProps) {
     setShoots([]);
     setSkipped([]);
     setStatuses(new Map());
+    knownIds.current = new Map();
     setError(null);
     setPhase("idle");
   }
@@ -157,6 +169,9 @@ export default function UploadDrop({ genre, target }: UploadDropProps) {
                   <span className="mt-1 block font-mono text-[11px] text-ink/40">
                     /work/{genre}/{slugify(shoot.title) || "…"}
                   </span>
+                  {phase === "review" && nameProblems[i] && (
+                    <span className="mt-1 block text-sm text-red-700">{nameProblems[i]}</span>
+                  )}
                 </label>
               )}
               <ul className="mt-3 grid gap-1 font-mono text-[11px]">
@@ -176,7 +191,7 @@ export default function UploadDrop({ genre, target }: UploadDropProps) {
 
           <div className="flex flex-wrap gap-3">
             {phase === "review" && (
-              <button type="button" onClick={() => run(shoots)} className={`${button} bg-ink text-paper`}>
+              <button type="button" onClick={start} className={`${button} bg-ink text-paper`}>
                 Upload
               </button>
             )}

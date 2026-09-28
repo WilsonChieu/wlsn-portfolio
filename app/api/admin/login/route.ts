@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { readBody } from "@/lib/admin-api";
-import { SESSION_COOKIE, SESSION_TTL_SECONDS, createSessionToken, passwordMatches } from "@/lib/auth";
+import {
+  MIN_PASSWORD_LENGTH,
+  SESSION_COOKIE,
+  SESSION_TTL_SECONDS,
+  createSessionToken,
+  isStrongPassword,
+  passwordMatches,
+} from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +22,12 @@ export async function POST(req: Request) {
   const secret = process.env.ADMIN_SESSION_SECRET ?? "";
   const expected = process.env.ADMIN_PASSWORD ?? "";
   if (!secret || !expected) return NextResponse.json({ error: "Admin is not configured" }, { status: 500 });
+  if (!isStrongPassword(expected)) {
+    return NextResponse.json(
+      { error: `Admin password is too short — set ADMIN_PASSWORD to at least ${MIN_PASSWORD_LENGTH} characters` },
+      { status: 500 }
+    );
+  }
 
   if (!(await passwordMatches(password, expected, secret))) {
     await new Promise((r) => setTimeout(r, FAILED_LOGIN_DELAY_MS));

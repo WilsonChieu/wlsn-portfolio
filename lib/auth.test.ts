@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { SESSION_TTL_SECONDS, createSessionToken, passwordMatches, verifySessionToken } from "@/lib/auth";
+import {
+  MIN_PASSWORD_LENGTH,
+  SESSION_TTL_SECONDS,
+  createSessionToken,
+  isStrongPassword,
+  passwordMatches,
+  verifySessionToken,
+} from "@/lib/auth";
 
 const SECRET = "test-secret-please-ignore";
 const NOW = 1_800_000_000_000;
@@ -43,5 +50,16 @@ describe("passwordMatches", () => {
   });
   it("never matches when no password is configured", async () => {
     expect(await passwordMatches("", "", SECRET)).toBe(false);
+  });
+});
+
+describe("isStrongPassword", () => {
+  it("requires at least 16 characters", () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(16);
+    expect(isStrongPassword("a".repeat(15))).toBe(false);
+    expect(isStrongPassword("a".repeat(16))).toBe(true);
+  });
+  it("ignores surrounding whitespace when counting", () => {
+    expect(isStrongPassword(" ".repeat(20))).toBe(false);
   });
 });

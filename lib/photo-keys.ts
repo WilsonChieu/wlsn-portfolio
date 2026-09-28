@@ -1,6 +1,8 @@
 export const VARIANT_WIDTHS = [640, 1280, 1920, 2560, 3840] as const;
 export const JPEG_QUALITY = 0.88;
 export const SITE_MANIFEST_KEY = "_site.json";
+// iOS Safari refuses canvases above ~16.7 MP, so tall portraits get a slightly narrower top variant.
+export const MAX_CANVAS_PIXELS = 16_000_000;
 
 export function eventPrefix(genre: string, event: string): string {
   return `${genre}/${event}/`;
@@ -25,4 +27,10 @@ export function variantKey(key: string, width: number): string {
 
 export function pickVariantWidth(width: number): number {
   return VARIANT_WIDTHS.find((w) => w >= width) ?? VARIANT_WIDTHS[VARIANT_WIDTHS.length - 1];
+}
+
+export function variantTargetWidth(requested: number, width: number, height: number): number {
+  let target = Math.min(requested, width, Math.floor(Math.sqrt((MAX_CANVAS_PIXELS * width) / height)));
+  while (target * Math.round((height * target) / width) > MAX_CANVAS_PIXELS) target--;
+  return target;
 }

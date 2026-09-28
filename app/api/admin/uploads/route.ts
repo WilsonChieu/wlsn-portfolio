@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (!ref || !photos) return jsonError("Invalid upload request");
 
   const used = await bucketUsageBytes();
-  const incoming = photos.reduce((sum, p) => sum + p.bytes, 0);
+  const incoming = photos.reduce((sum, p) => sum + p.sizes.reduce((a, b) => a + b, 0), 0);
   if (!canStore(used, incoming)) {
     return jsonError(
       `Storage limit reached: ${formatGB(used)} used, uploads stop at ${formatGB(STORAGE_LIMIT_BYTES)} to stay free. Delete photos to make room.`,
@@ -29,9 +29,9 @@ export async function POST(req: Request) {
     photos.map(async (p) => {
       const key = photoKey(ref.genre, ref.event, p.id);
       const variants = await Promise.all(
-        VARIANT_WIDTHS.map(async (width) => ({
+        VARIANT_WIDTHS.map(async (width, i) => ({
           width,
-          url: await presignPut(publicBucket(), variantKey(key, width), "image/jpeg"),
+          url: await presignPut(publicBucket(), variantKey(key, width), "image/jpeg", p.sizes[i]),
         }))
       );
       return { id: p.id, variants };

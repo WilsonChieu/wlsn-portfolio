@@ -43,7 +43,7 @@ export default async function AdminPage() {
               View live →
             </Link>
           </div>
-          <UploadDrop genre={genre.slug} />
+          <UploadDrop genre={genre.slug} existingShoots={genre.shoots.map((s) => s.slug)} />
           <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {genre.shoots.map((shoot) => (
               <li key={shoot.slug}>

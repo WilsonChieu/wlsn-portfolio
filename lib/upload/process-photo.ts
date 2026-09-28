@@ -1,5 +1,5 @@
 import pica from "pica";
-import { JPEG_QUALITY, VARIANT_WIDTHS } from "@/lib/photo-keys";
+import { JPEG_QUALITY, VARIANT_WIDTHS, variantTargetWidth } from "@/lib/photo-keys";
 
 export interface ProcessedPhoto {
   width: number;
@@ -26,7 +26,7 @@ export async function processPhoto(file: File): Promise<ProcessedPhoto> {
     const byTarget = new Map<number, Blob>();
     const variants: ProcessedPhoto["variants"] = [];
     for (const w of VARIANT_WIDTHS) {
-      const target = Math.min(w, width);
+      const target = variantTargetWidth(w, width, height);
       let blob = byTarget.get(target);
       if (!blob) {
         const canvas = document.createElement("canvas");

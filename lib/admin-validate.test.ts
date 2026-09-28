@@ -50,18 +50,20 @@ describe("parsePhotoEntries", () => {
 });
 
 describe("parseUploadPhotos", () => {
-  it("accepts valid requests", () => {
-    expect(parseUploadPhotos([{ id: "ott-1", bytes: 2_700_000 }])).toEqual([{ id: "ott-1", bytes: 2_700_000 }]);
+  const sizes = [100_000, 300_000, 600_000, 1_000_000, 2_000_000];
+  it("accepts one byte size per variant", () => {
+    expect(parseUploadPhotos([{ id: "ott-1", sizes }])).toEqual([{ id: "ott-1", sizes }]);
   });
   it.each([
     [[]],
     [[{ id: "ott-1" }]],
-    [[{ id: "ott-1", bytes: 0 }]],
-    [[{ id: "ott-1", bytes: 1.5 }]],
-    [[{ id: "ott-1", bytes: 600_000_000 }]],
-    [[{ id: "ott-1", bytes: "100" }]],
-    [[{ id: "../ott", bytes: 100 }]],
-    [Array.from({ length: 51 }, (_, i) => ({ id: `p${i}`, bytes: 100 }))],
+    [[{ id: "ott-1", sizes: [1, 2, 3, 4] }]],
+    [[{ id: "ott-1", sizes: [1, 2, 3, 4, 0] }]],
+    [[{ id: "ott-1", sizes: [1, 2, 3, 4, 1.5] }]],
+    [[{ id: "ott-1", sizes: [1, 2, 3, 4, 200_000_000] }]],
+    [[{ id: "ott-1", sizes: [1, 2, 3, 4, "5"] }]],
+    [[{ id: "../ott", sizes }]],
+    [Array.from({ length: 51 }, (_, i) => ({ id: `p${i}`, sizes }))],
   ])("rejects %j", (value) => {
     expect(parseUploadPhotos(value)).toBeNull();
   });

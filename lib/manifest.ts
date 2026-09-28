@@ -60,6 +60,7 @@ function mapGenre(site: SiteManifest, genre: string, fn: (g: GenreEntry) => Genr
 }
 
 export function addEventToGenre(site: SiteManifest, genre: string, event: string): SiteManifest {
+  if (site.genres.some((g) => g.slug === genre && g.events.includes(event))) return site;
   return mapGenre(site, genre, (g) => (g.events.includes(event) ? g : { ...g, events: [...g.events, event] }));
 }
 

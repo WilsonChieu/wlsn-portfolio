@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapLimit } from "@/lib/pool";
+import { chunk, mapLimit } from "@/lib/pool";
 
 describe("mapLimit", () => {
   it("keeps input order and never exceeds the limit", async () => {
@@ -18,5 +18,14 @@ describe("mapLimit", () => {
 
   it("handles an empty list", async () => {
     expect(await mapLimit([], 3, async () => 1)).toEqual([]);
+  });
+});
+
+describe("chunk", () => {
+  it("splits into groups of at most n, keeping order", () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+  });
+  it("returns no groups for an empty list", () => {
+    expect(chunk([], 3)).toEqual([]);
   });
 });

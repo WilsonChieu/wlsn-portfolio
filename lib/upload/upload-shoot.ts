@@ -1,6 +1,6 @@
 import type { PhotoEntry } from "@/lib/manifest";
-import { mapLimit } from "@/lib/pool";
-import { slugify, uniqueId } from "@/lib/slug";
+import { chunk, mapLimit } from "@/lib/pool";
+import { assignPhotoIds } from "@/lib/upload/assign-ids";
 import { processPhoto } from "@/lib/upload/process-photo";
 
 export interface ShootJob {
@@ -23,8 +23,8 @@ interface SignedPhoto {
 }
 
 const COVER_FILE = /^cover\.[a-z0-9]+$/i;
-
-const baseName = (name: string) => name.replace(/\.[^.]+$/, "");
+// Keeps each commit request well under the server's 500-entry limit and the function timeout.
+const COMMIT_BATCH_SIZE = 100;
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 async function sendJson<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -43,13 +43,18 @@ async function put(url: string, body: Blob, contentType: string): Promise<void> 
   if (!res.ok) throw new Error(`Upload failed (${res.status})`);
 }
 
-export async function uploadShoot(job: ShootJob, onStatus: (file: File, status: FileStatus) => void): Promise<void> {
+export async function uploadShoot(
+  job: ShootJob,
+  onStatus: (file: File, status: FileStatus) => void,
+  knownIds: Map<File, string>
+): Promise<void> {
   const query = `genre=${encodeURIComponent(job.genre)}&event=${encodeURIComponent(job.event)}`;
   const { manifest } = await sendJson<{ manifest: { photos: { id: string }[] } | null }>("GET", `/api/admin/events?${query}`);
   const taken = new Set(manifest?.photos.map((p) => p.id) ?? []);
+  const ids = assignPhotoIds(job.files, (file) => file.name, taken, knownIds);
   const planned = job.files.map((file) => {
-    const id = uniqueId(slugify(baseName(file.name)), taken);
-    taken.add(id);
+    const id = ids.get(file)!;
+    knownIds.set(file, id);
     return { file, id, isCover: COVER_FILE.test(file.name) };
   });
 
@@ -60,13 +65,13 @@ export async function uploadShoot(job: ShootJob, onStatus: (file: File, status: 
       onStatus(file, { state: "processing" });
       const processed = await processPhoto(file);
       onStatus(file, { state: "uploading" });
-      const bytes = processed.variants.reduce((sum, v) => sum + v.blob.size, 0);
+      const sizes = processed.variants.map((v) => v.blob.size);
       const {
         photos: [signed],
       } = await sendJson<{ photos: SignedPhoto[] }>("POST", "/api/admin/uploads", {
         genre: job.genre,
         event: job.event,
-        photos: [{ id, bytes }],
+        photos: [{ id, sizes }],
       });
       await Promise.all(
         signed.variants.map((v) => {
@@ -88,22 +93,24 @@ export async function uploadShoot(job: ShootJob, onStatus: (file: File, status: 
   const uploaded = results.filter((r): r is NonNullable<typeof r> => r !== null);
   if (uploaded.length === 0) return;
 
-  try {
-    const { missing } = await sendJson<{ committed: string[]; missing: string[] }>("POST", "/api/admin/photos", {
-      genre: job.genre,
-      event: job.event,
-      title: job.title,
-      coverId: uploaded.find((r) => r.isCover)?.entry.id ?? null,
-      photos: uploaded.map((r) => r.entry),
-    });
-    const missingIds = new Set(missing);
-    for (const r of uploaded) {
-      onStatus(
-        r.file,
-        missingIds.has(r.entry.id) ? { state: "failed", error: "Upload didn't arrive in storage" } : { state: "done" }
-      );
+  for (const batch of chunk(uploaded, COMMIT_BATCH_SIZE)) {
+    try {
+      const { missing } = await sendJson<{ committed: string[]; missing: string[] }>("POST", "/api/admin/photos", {
+        genre: job.genre,
+        event: job.event,
+        title: job.title,
+        coverId: batch.find((r) => r.isCover)?.entry.id ?? null,
+        photos: batch.map((r) => r.entry),
+      });
+      const missingIds = new Set(missing);
+      for (const r of batch) {
+        onStatus(
+          r.file,
+          missingIds.has(r.entry.id) ? { state: "failed", error: "Upload didn't arrive in storage" } : { state: "done" }
+        );
+      }
+    } catch (err) {
+      for (const r of batch) onStatus(r.file, { state: "failed", error: messageOf(err) });
     }
-  } catch (err) {
-    for (const r of uploaded) onStatus(r.file, { state: "failed", error: messageOf(err) });
   }
 }

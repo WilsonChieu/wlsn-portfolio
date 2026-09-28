@@ -81,8 +81,9 @@ export async function objectExists(bucket: string, key: string): Promise<boolean
   }
 }
 
-export function presignPut(bucket: string, key: string, contentType: string): Promise<string> {
-  return getSignedUrl(r2(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), {
+// Signing ContentLength makes R2 reject a PUT of any other size, so the storage guard can trust the sizes it checked.
+export function presignPut(bucket: string, key: string, contentType: string, contentLength: number): Promise<string> {
+  return getSignedUrl(r2(), new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, ContentLength: contentLength }), {
     expiresIn: UPLOAD_URL_TTL_SECONDS,
   });
 }

@@ -125,3 +125,10 @@ describe("removePhoto / setCover", () => {
     expect(() => setCover(ev, "zzz")).toThrow(ManifestError);
   });
 });
+
+describe("addEventToGenre when already listed", () => {
+  it("returns the same object so callers can skip the write", () => {
+    const s = site();
+    expect(addEventToGenre(s, "concerts", "icn")).toBe(s);
+  });
+});

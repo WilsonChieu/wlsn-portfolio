@@ -1,5 +1,6 @@
 export const SESSION_COOKIE = "wlsn_admin";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const MIN_PASSWORD_LENGTH = 16;
 
 const encoder = new TextEncoder();
 
@@ -41,4 +42,9 @@ export async function verifySessionToken(token: string | undefined, secret: stri
 export async function passwordMatches(input: string, expected: string, secret: string): Promise<boolean> {
   if (!expected) return false;
   return safeEqual(await hmacHex(secret, input), await hmacHex(secret, expected));
+}
+
+// The login page is public and the upload guard is the only thing between a guessed password and an R2 bill.
+export function isStrongPassword(password: string): boolean {
+  return password.trim().length >= MIN_PASSWORD_LENGTH;
 }
