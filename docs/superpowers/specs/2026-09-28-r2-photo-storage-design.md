@@ -1,0 +1,248 @@
+# R2 Photo Storage + Admin Uploads — Design Spec
+
+Status: design agreed in chat with Wilson (2026-09-28); this document awaits his review before an
+implementation plan is written.
+
+## 1. Problem & goal
+
+All photos (915 MB, 562 files) live in `public/work/`, are committed to git, and ship with every
+Vercel deploy. `next/image` optimizes them through Vercel. On the Hobby plan (last 30 days) this
+puts Image Optimization **cache writes at 74K / 100K** and Functions Storage at 6.77 / 10 GB, with
+Deployment Storage growing per deploy. More shoots are coming.
+
+Goal: photo storage and delivery that scales with the collection at near-zero cost, with shoots
+added from a browser instead of through git.
+
+Success criteria:
+
+- No photo bytes in the repo or Vercel deployments; Vercel does no image optimization for photos.
+- Adding a shoot = drag a folder onto `/admin`; it appears on the live site within seconds, no deploy.
+- Photos render sharp on wide/retina desktops (served at up to 3840px, never upscaled).
+- Public URLs (`/work/<genre>/<event>`) and page appearance are unchanged.
+
+Out of scope for this spec: visitor/click statistics dashboard (separate sub-project, later; note
+Vercel Web Analytics is already enabled), custom domain, reordering photos, renaming shoots.
+
+## 2. Decisions
+
+| Topic | Decision |
+|---|---|
+| Storage | Cloudflare R2 |
+| Public delivery | Bucket's `r2.dev` URL for now (no custom domain; site stays on `*.vercel.app`). Base URL is a single env var so a custom domain later is a config change. |
+| Resizing | Done once at upload time (browser in admin, `sharp` in the migration script). Pre-built WebP variants, no runtime transforms. |
+| Admin auth | Single password, single user |
+| Admin v1 features | Upload (folder drag-drop), delete photo/shoot, set shoot cover, create category |
+| Tests | Add Vitest for pure helpers only; pages/uploads verified manually in the browser |
+
+## 3. Storage layout
+
+Two buckets:
+
+- **`wlsn-photos`** (public via `r2.dev`) — only resized, EXIF-stripped variants plus manifests.
+- **`wlsn-originals`** (private, never public) — untouched original files, kept so new sizes can be
+  generated later without re-uploading. Private because originals carry EXIF (incl. GPS) and would
+  otherwise be guessable public URLs.
+
+Public bucket keys:
+
+```
+_site.json
+<genre>/<event>/_event.json
+<genre>/<event>/<photoId>/w640.webp
+<genre>/<event>/<photoId>/w1280.webp
+<genre>/<event>/<photoId>/w1920.webp
+<genre>/<event>/<photoId>/w2560.webp
+<genre>/<event>/<photoId>/w3840.webp
+```
+
+Private bucket: `<genre>/<event>/<photoId>/original.<ext>`.
+
+**Variant rule:** all five variant keys always exist. A variant wider than the source is stored at
+the source's native width (never upscaled). This keeps the image loader trivial — it never needs
+to know a photo's real width.
+
+Encoding: WebP, quality 85 (browser `pica` + canvas encode; `sharp` in the script). Orientation
+applied, all metadata stripped.
+
+### Manifests
+
+`_site.json` — categories, their display order, and their shoots' order:
+
+```json
+{
+  "genres": [
+    {
+      "slug": "concerts",
+      "title": "Concerts",
+      "meta": "Live Sets",
+      "cover": { "event": "off-the-track", "photo": "cover" },
+      "events": ["international-cultural-night", "off-the-track"]
+    }
+  ]
+}
+```
+
+`cover` is optional; if absent the genre cover is its first event's cover (current behavior).
+It replaces the hardcoded `GENRE_LABELS` in `lib/works.ts`.
+
+`<genre>/<event>/_event.json`:
+
+```json
+{
+  "title": "Off The Track",
+  "cover": "cover",
+  "photos": [{ "id": "ott-1", "width": 5000, "height": 3333 }]
+}
+```
+
+`cover` is a photo id or `null` (→ first photo). `width`/`height` are the source's native
+dimensions, used for layout aspect ratios. Photo order = array order (natural filename sort within
+each upload batch; new batches append).
+
+Writes are last-write-wins. Acceptable: single admin user.
+
+### Slugs & ids
+
+`slugify()`: lowercase, strip accents, non-alphanumerics → `-`, collapse/trim dashes
+(`"Wei Juin"` → `wei-juin`). Used for new genres, new shoots (from folder name, editable), and
+photo ids (from filename without extension). Photo id collisions within a shoot get `-2`, `-3`, ….
+
+## 4. Public site changes
+
+- **`lib/works.ts`** — rewritten to read `_site.json` and `_event.json` from R2 (server-side, via the
+  S3 API) instead of `fs`. Exposes the same `WorkGenre` / `WorkEvent` / `WorkImage` shapes and the
+  same `getGenres` / `getGenre` / `getEvent` functions (now `async`), so pages change minimally.
+  `readImageDimensions`, `findExplicitCover` and `GENRE_LABELS` are removed. `WorkImage.src` becomes
+  the photo's key prefix (`concerts/off-the-track/ott-1`).
+- **Image loader** — `next.config.mjs` sets `images.loader: "custom"` with a `loaderFile`
+  (`lib/image-loader.ts`) mapping `(src, width)` → `${NEXT_PUBLIC_PHOTO_BASE_URL}/${src}/w{N}.webp`,
+  where N is the smallest of 640/1280/1920/2560/3840 that is ≥ width (else 3840). Vercel image
+  optimization is therefore never invoked. `quality` props become irrelevant and are removed.
+- **Freshness** — pages use ISR (`revalidate = 3600`) and admin mutations call
+  `revalidatePath("/", "layout")` for near-instant updates. `generateStaticParams` stays;
+  `dynamicParams` stays true so shoots created after a deploy render on first visit.
+- **`components/Featured.tsx`** — hardcoded `/work/concerts/off-the-track/cover.jpg` becomes the R2
+  key `concerts/off-the-track/cover`. Its 1800px max-size box stays until a full-res export of that
+  photo exists (source is only 1684px wide).
+- Drop the earlier uncommitted `quality={90}` / AVIF change (superseded, and it would have
+  increased Vercel cache writes). Keep the `wanyi` / `wei-juin` folder renames — the migration
+  uploads under those names.
+
+## 5. Admin area
+
+### Auth
+
+- Env: `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`.
+- `POST /api/admin/login` compares the password in constant time; on failure waits ~1 s and
+  returns 401. On success sets `wlsn_admin` cookie: `expiry.HMAC-SHA256(expiry)`, `httpOnly`,
+  `Secure`, `SameSite=Strict`, 7-day expiry. `POST /api/admin/logout` clears it.
+- `middleware.ts` verifies the cookie (Web Crypto, edge-compatible) for `/admin/*` (except
+  `/admin/login`) and `/api/admin/*` (except login). API route handlers re-verify.
+- Admin pages set `robots: noindex`.
+
+### Screens (all under `app/admin/`)
+
+1. **`/admin/login`** — password form.
+2. **`/admin`** — categories with their shoots (cover thumbnail, photo count); **+ New category**
+   (name + short label → slug); each category is a folder drop zone.
+3. **`/admin/[genre]/[event]`** — photo grid with **Set as cover** / **Delete** per photo, a drop
+   zone to add photos, **Delete shoot** (confirm by typing the shoot slug).
+
+### Folder drop & file selection
+
+- Dropping one or more folders on a category → one new shoot per folder, name prefilled from the
+  folder name (editable before confirming). Dropping on an existing shoot → photos added to it.
+- Folder traversal via `DataTransferItem.webkitGetAsEntry()`, recursive; subfolder photos join the
+  same shoot.
+- Also a **Choose folder** button (`<input webkitdirectory>`) and a **Choose photos** button
+  (multi-select; the only option on phones, which can't drag folders).
+- Accepted: jpg/jpeg/png/webp/gif, plus anything the browser can decode (HEIC works in Safari
+  only). Everything else (RAW, sidecars, `.DS_Store`) is skipped and listed to the user.
+- A file named `cover.*` becomes the shoot cover.
+
+### Upload pipeline (per photo, 2 concurrent)
+
+1. Decode in the browser (`createImageBitmap`, orientation from EXIF); read native width/height.
+2. Generate the five WebP variants with `pica` (high-quality resize) → canvas encode.
+3. `POST /api/admin/uploads` → server returns presigned PUT URLs (short expiry) for the five public
+   keys and the private original key.
+4. Browser PUTs variants + original directly to R2 (no photo bytes pass through Vercel).
+5. When a shoot's batch finishes, `POST /api/admin/photos` commits the successful photos to
+   `_event.json` (and creates the shoot in `_site.json` if new). The server `HeadObject`-checks
+   each photo's variants before committing, then revalidates.
+
+Failed photos show red with **Retry**; others continue. A photo appears on the site only after
+commit, so partial uploads are never visible (orphaned objects from abandoned uploads are
+tolerated).
+
+### Mutations
+
+- **Set cover** — `PATCH` event manifest `cover`.
+- **Delete photo** — remove from manifest first (instantly gone from the site), then delete its
+  public variants and private original. Deleting the cover resets `cover` to `null`.
+- **Delete shoot** — remove from `_site.json` first, then delete all objects under its prefix in
+  both buckets.
+- **New category** — append to `_site.json`.
+- Every mutation revalidates. The R2 S3 client lives in `lib/r2.ts` (`@aws-sdk/client-s3`,
+  `@aws-sdk/s3-request-presigner`); manifest read/update helpers in `lib/manifest.ts`.
+
+## 6. Migration script (`scripts/migrate-to-r2.mjs`)
+
+- Reads `public/work/`, builds `_site.json` (titles/meta from the current `GENRE_LABELS`, the
+  graduation genre cover from `graduation/cover.JPG`) and each `_event.json`; uploads variants with
+  `sharp` (lanczos3, WebP q85) and originals to the private bucket.
+- **Blurry covers:** for `concerts/off-the-track/cover.jpg` and `graduation/kenneth-lea/cover.JPG`
+  (and the identical `graduation/cover.JPG`), uses the pre-upscale versions from git
+  (`799db5e^`) instead of the upscaled files, since upscaling added no detail.
+- `--dry-run` prints the plan without uploading. Idempotent: skips objects that already exist, so
+  it can resume after a dropped connection.
+- Reads R2 credentials from `.env.local`.
+- Run once from Wilson's PC. The live site is unaffected (it still uses `public/work/`).
+
+## 7. Configuration
+
+Env vars (`.env.local` locally, Vercel project settings in prod; never committed):
+
+```
+R2_ACCOUNT_ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_PUBLIC_BUCKET=wlsn-photos
+R2_ORIGINALS_BUCKET=wlsn-originals
+NEXT_PUBLIC_PHOTO_BASE_URL=https://pub-<hash>.r2.dev
+ADMIN_PASSWORD
+ADMIN_SESSION_SECRET
+```
+
+Cloudflare setup (Wilson, in the dashboard, with step-by-step instructions): create both buckets,
+enable `r2.dev` public access on `wlsn-photos` only, create an R2 API token scoped to the two
+buckets (Object Read & Write), and add a CORS rule on both buckets allowing `PUT` from
+`http://localhost:3000` and the production `vercel.app` origin (plus a preview origin while testing).
+
+## 8. Testing
+
+- **Vitest (new):** `slugify`, image-loader width selection, manifest update functions (add photos,
+  delete photo incl. cover reset, set cover, add genre/shoot, id de-duplication).
+- **Manual:** `npm run build`; then in the browser against real R2 — every public page, a folder
+  drop, a multi-photo upload with one forced failure + retry, set cover, delete photo, delete shoot,
+  new category; check a phone-width viewport.
+
+## 9. Rollout (pause for Wilson's go-ahead at each step)
+
+1. Cloudflare setup (§7).
+2. Migration `--dry-run`, then real run; spot-check objects in the R2 dashboard.
+3. Local verification (§8).
+4. Push this branch (not `master`) → Vercel preview; add env vars in Vercel; verify on desktop + phone.
+5. Merge to `master` (live).
+6. After live is confirmed: separate commit deleting `public/work/` (and `scripts/generate-placeholders.mjs`
+   if no longer useful). Until then, rollback = revert. Optionally delete old Vercel deployments to
+   free Deployment Storage.
+7. Update `CLAUDE.md` — the `public/work/` convention section becomes the R2/manifest convention.
+
+## 10. Known limitations
+
+- `r2.dev` is rate-limited and uncached (Cloudflare positions it for non-production use). Mitigated
+  by pre-sized variants; resolved by adding a custom domain later (change `NEXT_PUBLIC_PHOTO_BASE_URL`).
+- Off-the-track and kenneth-lea covers are capped at their real resolution (1684px / 2700px) until
+  re-exported from originals.
+- Single admin, last-write-wins manifests; no reorder/rename in v1.
