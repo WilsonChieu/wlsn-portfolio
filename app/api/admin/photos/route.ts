@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const fresh = (await getJson<SiteManifest>(SITE_MANIFEST_KEY)) ?? site;
     const next = addEventToGenre(fresh, ref.genre, ref.event);
     if (next !== fresh) await putJson(SITE_MANIFEST_KEY, next);
-    revalidateSite();
+    await revalidateSite();
   }
 
   return NextResponse.json({ committed: committed.map((p) => p.id), missing });
@@ -78,7 +78,7 @@ export async function DELETE(req: Request) {
     const next = clearGenreCoverIfPhoto(site, ref.genre, ref.event, id);
     if (next !== site) await putJson(SITE_MANIFEST_KEY, next);
   }
-  revalidateSite();
+  await revalidateSite();
 
   await deletePrefix(publicBucket(), photoPrefix(photoKey(ref.genre, ref.event, id)));
   return NextResponse.json({ ok: true });

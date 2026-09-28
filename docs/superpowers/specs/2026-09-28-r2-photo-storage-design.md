@@ -263,3 +263,52 @@ Cloudflare setup (Wilson, in the dashboard, with step-by-step instructions): cre
 - Off-the-track and kenneth-lea covers are capped at their real resolution (1684px / 2700px) until
   re-exported from originals.
 - Single admin, last-write-wins manifests; no reorder/rename in v1.
+
+## 11. Separate admin deployment (amended 2026-09-28)
+
+Wilson does not want `/admin` reachable on the public site. The same codebase (branch `master`) is
+deployed to **two Vercel projects**; an env var decides what each serves: `wlsn-portfolio`
+(`https://wlsn-portfolio.vercel.app`, public, existing) and `wlsn-admin`
+(`https://wlsn-admin.vercel.app`, created by Wilson). Until this branch is merged, `wlsn-admin`
+serves the old portfolio from `master`.
+
+### `SITE_MODE`
+
+| Value | Used by | Public pages (`/`, `/work/…`) | `/admin*`, `/api/admin*` |
+|---|---|---|---|
+| `public` (default when unset or unrecognised) | `wlsn-portfolio` | served | **404** |
+| `admin` | `wlsn-admin` | redirect to `/admin` | served (login required as before) |
+| `all` | local development only (`.env.local`) | served | served |
+
+- Unset/unknown falls back to `public` so a misconfigured deploy never exposes admin.
+- Enforced in `middleware.ts`, whose matcher widens to all paths except `/_next/*` and static files.
+  The decision is a pure function (`lib/site-mode.ts`) that is unit-tested.
+- `/api/revalidate` is allowed in every mode (it has its own secret).
+
+### Cross-project revalidation
+
+Admin mutations can no longer `revalidatePath` the public deployment directly.
+
+- Public site: `POST /api/revalidate` with header `Authorization: Bearer <REVALIDATE_SECRET>` →
+  `revalidatePath("/", "layout")`; wrong/missing secret → 401; unset secret → 500 (endpoint disabled).
+  The comparison is constant-time.
+- Admin: `revalidateSite()` revalidates locally and then POSTs to `${PUBLIC_SITE_URL}/api/revalidate`.
+  A failure is logged and does not fail the mutation; the public site's ISR (`revalidate = 3600`)
+  catches up within an hour.
+
+### Environment per project
+
+- `wlsn-portfolio`: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (optionally a
+  separate read-only R2 token), `R2_PUBLIC_BUCKET`, `NEXT_PUBLIC_PHOTO_BASE_URL`, `REVALIDATE_SECRET`.
+  No `ADMIN_*` vars (admin is unreachable anyway). `SITE_MODE` unset or `public`.
+- `wlsn-admin`: all of the above with the read-write token, plus `ADMIN_PASSWORD`,
+  `ADMIN_SESSION_SECRET`, `SITE_MODE=admin`, `PUBLIC_SITE_URL=https://wlsn-portfolio.vercel.app`,
+  same `REVALIDATE_SECRET`.
+- Local `.env.local`: `SITE_MODE=all`, `PUBLIC_SITE_URL` unset (local revalidation only).
+- CORS on `wlsn-photos` adds `https://wlsn-admin.vercel.app` (uploads happen only from admin).
+
+### Testing
+
+- Vitest: route decisions for every mode × path class; bearer-secret check.
+- Browser: local run in each mode; after go-live, an admin change appears on the public site
+  within seconds.

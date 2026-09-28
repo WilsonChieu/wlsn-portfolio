@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   try {
     const result = addGenre(site, title, typeof meta === "string" ? meta : "");
     await putJson(SITE_MANIFEST_KEY, result.site);
-    revalidateSite();
+    await revalidateSite();
     return NextResponse.json({ slug: result.slug });
   } catch (err) {
     if (err instanceof ManifestError) return jsonError(err.message, 409);

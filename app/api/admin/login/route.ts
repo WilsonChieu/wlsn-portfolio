@@ -8,12 +8,14 @@ import {
   isStrongPassword,
   passwordMatches,
 } from "@/lib/auth";
+import { parseSiteMode } from "@/lib/site-mode";
 
 export const dynamic = "force-dynamic";
 
 const FAILED_LOGIN_DELAY_MS = 1000;
 
 export async function POST(req: Request) {
+  if (parseSiteMode(process.env.SITE_MODE) === "public") return new NextResponse("Not found", { status: 404 });
   const body = await readBody(req);
   const password =
     typeof body === "object" && body !== null && "password" in body && typeof body.password === "string"

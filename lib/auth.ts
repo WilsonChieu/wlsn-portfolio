@@ -44,6 +44,11 @@ export async function passwordMatches(input: string, expected: string, secret: s
   return safeEqual(await hmacHex(secret, input), await hmacHex(secret, expected));
 }
 
+export async function bearerMatches(authorization: string | null, secret: string): Promise<boolean> {
+  if (!secret || !authorization?.startsWith("Bearer ")) return false;
+  return passwordMatches(authorization.slice("Bearer ".length), secret, secret);
+}
+
 // The login page is public and the upload guard is the only thing between a guessed password and an R2 bill.
 export function isStrongPassword(password: string): boolean {
   return password.trim().length >= MIN_PASSWORD_LENGTH;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MIN_PASSWORD_LENGTH,
   SESSION_TTL_SECONDS,
+  bearerMatches,
   createSessionToken,
   isStrongPassword,
   passwordMatches,
@@ -61,5 +62,21 @@ describe("isStrongPassword", () => {
   });
   it("ignores surrounding whitespace when counting", () => {
     expect(isStrongPassword(" ".repeat(20))).toBe(false);
+  });
+});
+
+describe("bearerMatches", () => {
+  it("accepts the exact bearer secret", async () => {
+    expect(await bearerMatches(`Bearer ${SECRET}`, SECRET)).toBe(true);
+  });
+  it.each([null, "", SECRET, `Bearer ${SECRET}x`, `bearer ${SECRET}`, "Bearer ", `Basic ${SECRET}`])(
+    "rejects %j",
+    async (header) => {
+      expect(await bearerMatches(header, SECRET)).toBe(false);
+    }
+  );
+  it("rejects everything when no secret is configured", async () => {
+    expect(await bearerMatches("Bearer ", "")).toBe(false);
+    expect(await bearerMatches("Bearer anything", "")).toBe(false);
   });
 });
