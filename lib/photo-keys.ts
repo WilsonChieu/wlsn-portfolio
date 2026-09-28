@@ -23,10 +23,6 @@ export function variantKey(key: string, width: number): string {
   return `${key}/w${width}.jpg`;
 }
 
-export function originalKey(key: string, ext: string): string {
-  return `${key}/original.${ext}`;
-}
-
 export function pickVariantWidth(width: number): number {
   return VARIANT_WIDTHS.find((w) => w >= width) ?? VARIANT_WIDTHS[VARIANT_WIDTHS.length - 1];
 }

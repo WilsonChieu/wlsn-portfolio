@@ -18,7 +18,6 @@ function env(name: string): string {
 }
 
 export const publicBucket = () => env("R2_PUBLIC_BUCKET");
-export const originalsBucket = () => env("R2_ORIGINALS_BUCKET");
 
 let client: S3Client | undefined;
 
@@ -96,4 +95,15 @@ export async function deletePrefix(bucket: string, prefix: string): Promise<void
     const res = await r2().send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects } }));
     if (res.Errors?.length) throw new Error(`Could not delete ${res.Errors.length} objects under ${prefix}`);
   }
+}
+
+export async function bucketUsageBytes(): Promise<number> {
+  let total = 0;
+  let token: string | undefined;
+  do {
+    const page = await r2().send(new ListObjectsV2Command({ Bucket: publicBucket(), ContinuationToken: token }));
+    for (const object of page.Contents ?? []) total += object.Size ?? 0;
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return total;
 }

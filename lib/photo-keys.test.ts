@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   eventManifestKey,
   eventPrefix,
-  originalKey,
   photoKey,
   photoPrefix,
   pickVariantWidth,
@@ -26,10 +25,9 @@ describe("pickVariantWidth", () => {
 describe("keys", () => {
   const key = photoKey("concerts", "off-the-track", "ott-1");
 
-  it("builds photo, variant and original keys", () => {
+  it("builds photo and variant keys", () => {
     expect(key).toBe("concerts/off-the-track/ott-1");
     expect(variantKey(key, 1280)).toBe("concerts/off-the-track/ott-1/w1280.jpg");
-    expect(originalKey(key, "jpg")).toBe("concerts/off-the-track/ott-1/original.jpg");
   });
 
   it("builds event keys", () => {

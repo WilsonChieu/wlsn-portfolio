@@ -51,17 +51,17 @@ describe("parsePhotoEntries", () => {
 
 describe("parseUploadPhotos", () => {
   it("accepts valid requests", () => {
-    expect(parseUploadPhotos([{ id: "ott-1", originalExt: "jpg", originalType: "image/jpeg" }])).toEqual([
-      { id: "ott-1", originalExt: "jpg", originalType: "image/jpeg" },
-    ]);
+    expect(parseUploadPhotos([{ id: "ott-1", bytes: 2_700_000 }])).toEqual([{ id: "ott-1", bytes: 2_700_000 }]);
   });
   it.each([
     [[]],
-    [[{ id: "ott-1", originalExt: "../x", originalType: "image/jpeg" }]],
-    [[{ id: "ott-1", originalExt: "JPG", originalType: "image/jpeg" }]],
-    [[{ id: "ott-1", originalExt: "jpg", originalType: "not a type" }]],
-    [[{ id: "../ott", originalExt: "jpg", originalType: "image/jpeg" }]],
-    [Array.from({ length: 51 }, (_, i) => ({ id: `p${i}`, originalExt: "jpg", originalType: "image/jpeg" }))],
+    [[{ id: "ott-1" }]],
+    [[{ id: "ott-1", bytes: 0 }]],
+    [[{ id: "ott-1", bytes: 1.5 }]],
+    [[{ id: "ott-1", bytes: 600_000_000 }]],
+    [[{ id: "ott-1", bytes: "100" }]],
+    [[{ id: "../ott", bytes: 100 }]],
+    [Array.from({ length: 51 }, (_, i) => ({ id: `p${i}`, bytes: 100 }))],
   ])("rejects %j", (value) => {
     expect(parseUploadPhotos(value)).toBeNull();
   });
