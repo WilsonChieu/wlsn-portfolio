@@ -29,8 +29,8 @@ export async function DELETE(req: Request) {
   if (!site?.genres.some((g) => g.slug === ref.genre)) return jsonError("Unknown category", 404);
 
   await putJson(SITE_MANIFEST_KEY, removeEventFromGenre(site, ref.genre, ref.event));
-  await revalidateSite();
+  const live = await revalidateSite();
 
   await deletePrefix(publicBucket(), eventPrefix(ref.genre, ref.event));
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, live });
 }

@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ERROR_TOAST_MS, showToast } from "@/components/admin/toasts";
+import { uploadSummary } from "@/lib/admin-messages";
 import { slugify } from "@/lib/slug";
 import { filesFromDataTransfer, filesFromInput, groupFiles, type PathedFile } from "@/lib/upload/collect-files";
 import { shootNameProblems } from "@/lib/upload/shoot-names";
@@ -65,15 +68,18 @@ export default function UploadDrop({ genre, target, existingShoots = [] }: Uploa
     setPhase("uploading");
     setError(null);
     for (const shoot of list) {
+      const shootTitle = shoot.title.trim();
       try {
-        await uploadShoot(
-          { genre, event: target?.event ?? slugify(shoot.title), title: shoot.title.trim(), files: shoot.files },
+        const result = await uploadShoot(
+          { genre, event: target?.event ?? slugify(shoot.title), title: shootTitle, files: shoot.files },
           setStatus,
           knownIds.current
         );
+        showToast(uploadSummary({ ...result, shootTitle }));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         for (const file of shoot.files) setStatus(file, { state: "failed", error: message });
+        toast.error(`Upload to ${shootTitle} failed`, { description: message, duration: ERROR_TOAST_MS });
       }
     }
     setPhase("finished");

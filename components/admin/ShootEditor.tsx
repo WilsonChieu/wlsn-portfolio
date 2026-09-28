@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ERROR_TOAST_MS } from "@/components/admin/toasts";
+import { liveNote } from "@/lib/admin-messages";
 import { resolveEventCover, type EventManifest } from "@/lib/manifest";
 import { photoKey } from "@/lib/photo-keys";
 
@@ -17,30 +20,34 @@ const small = "focus-ring font-mono text-[10px] uppercase tracking-[0.14em] disa
 export default function ShootEditor({ genre, event, manifest }: ShootEditorProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const coverId = resolveEventCover(manifest);
 
-  async function call(method: string, url: string, body: unknown): Promise<boolean> {
+  // Resolves to whether the change is already live on the portfolio, or null when it failed (already toasted).
+  async function call(method: string, url: string, body: unknown, failure: string): Promise<boolean | null> {
     setBusy(true);
-    setError(null);
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error ?? `Failed (${res.status})`);
-      return false;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; live?: boolean };
+      if (!res.ok) {
+        toast.error(failure, { description: data.error ?? `Request failed (${res.status})`, duration: ERROR_TOAST_MS });
+        return null;
+      }
+      return data.live ?? false;
+    } catch (err) {
+      toast.error(failure, { description: err instanceof Error ? err.message : String(err), duration: ERROR_TOAST_MS });
+      return null;
+    } finally {
+      setBusy(false);
     }
-    return true;
   }
 
   return (
     <div className="mt-10">
-      {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {manifest.photos.map((p) => (
           <li key={p.id}>
@@ -58,7 +65,10 @@ export default function ShootEditor({ genre, event, manifest }: ShootEditorProps
                 disabled={busy || p.id === coverId}
                 className={small}
                 onClick={async () => {
-                  if (await call("PATCH", "/api/admin/cover", { genre, event, id: p.id })) router.refresh();
+                  const live = await call("PATCH", "/api/admin/cover", { genre, event, id: p.id }, "Couldn't change the cover");
+                  if (live === null) return;
+                  toast.success("Cover updated", { description: liveNote(live) });
+                  router.refresh();
                 }}
               >
                 Set as cover
@@ -69,7 +79,10 @@ export default function ShootEditor({ genre, event, manifest }: ShootEditorProps
                 className={`${small} text-red-700`}
                 onClick={async () => {
                   if (!window.confirm(`Delete ${p.id}? This can't be undone.`)) return;
-                  if (await call("DELETE", "/api/admin/photos", { genre, event, id: p.id })) router.refresh();
+                  const live = await call("DELETE", "/api/admin/photos", { genre, event, id: p.id }, `Couldn't delete ${p.id}`);
+                  if (live === null) return;
+                  toast.success("Photo deleted", { description: liveNote(live) });
+                  router.refresh();
                 }}
               >
                 Delete
@@ -95,10 +108,12 @@ export default function ShootEditor({ genre, event, manifest }: ShootEditorProps
             disabled={busy || confirmText !== event}
             className="focus-ring bg-red-700 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-paper disabled:opacity-40"
             onClick={async () => {
-              if (await call("DELETE", "/api/admin/events", { genre, event })) {
-                router.push("/admin");
-                router.refresh();
-              }
+              const live = await call("DELETE", "/api/admin/events", { genre, event }, "Couldn't delete the shoot");
+              if (live === null) return;
+              // The toaster lives in the admin layout, so this survives the navigation back to the overview.
+              toast.success(`Shoot "${manifest.title}" deleted`, { description: liveNote(live) });
+              router.push("/admin");
+              router.refresh();
             }}
           >
             Delete shoot

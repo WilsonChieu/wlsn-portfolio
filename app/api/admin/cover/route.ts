@@ -26,6 +26,6 @@ export async function PATCH(req: Request) {
     if (err instanceof ManifestError) return jsonError(err.message, 404);
     throw err;
   }
-  await revalidateSite();
-  return NextResponse.json({ ok: true });
+  const live = await revalidateSite();
+  return NextResponse.json({ ok: true, live });
 }

@@ -2,29 +2,34 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ERROR_TOAST_MS } from "@/components/admin/toasts";
+import { liveNote } from "@/lib/admin-messages";
 
 export default function NewGenreForm() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [meta, setMeta] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
     const res = await fetch("/api/admin/genres", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, meta }),
-    });
+    }).catch(() => null);
     setBusy(false);
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error ?? "Could not create category");
+    const data = ((await res?.json().catch(() => ({}))) ?? {}) as { error?: string; live?: boolean };
+    if (!res?.ok) {
+      toast.error("Couldn't create the category", {
+        description: data.error ?? "Check your connection and try again",
+        duration: ERROR_TOAST_MS,
+      });
       return;
     }
+    toast.success(`Category "${title.trim()}" created`, { description: liveNote(data.live ?? false) });
     setTitle("");
     setMeta("");
     router.refresh();
@@ -50,7 +55,6 @@ export default function NewGenreForm() {
       >
         + Add
       </button>
-      {error && <p className="w-full text-sm text-red-700">{error}</p>}
     </form>
   );
 }

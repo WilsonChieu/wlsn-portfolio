@@ -10,6 +10,12 @@ export interface ShootJob {
   files: File[];
 }
 
+export interface UploadResult {
+  added: number;
+  failed: number;
+  live: boolean;
+}
+
 export type FileState = "processing" | "uploading" | "done" | "failed";
 
 export interface FileStatus {
@@ -47,7 +53,7 @@ export async function uploadShoot(
   job: ShootJob,
   onStatus: (file: File, status: FileStatus) => void,
   knownIds: Map<File, string>
-): Promise<void> {
+): Promise<UploadResult> {
   const query = `genre=${encodeURIComponent(job.genre)}&event=${encodeURIComponent(job.event)}`;
   const { manifest } = await sendJson<{ manifest: { photos: { id: string }[] } | null }>("GET", `/api/admin/events?${query}`);
   const taken = new Set(manifest?.photos.map((p) => p.id) ?? []);
@@ -91,11 +97,12 @@ export async function uploadShoot(
   });
 
   const uploaded = results.filter((r): r is NonNullable<typeof r> => r !== null);
-  if (uploaded.length === 0) return;
+  const outcome: UploadResult = { added: 0, failed: results.length - uploaded.length, live: false };
+  if (uploaded.length === 0) return outcome;
 
   for (const batch of chunk(uploaded, COMMIT_BATCH_SIZE)) {
     try {
-      const { missing } = await sendJson<{ committed: string[]; missing: string[] }>("POST", "/api/admin/photos", {
+      const { missing, live } = await sendJson<{ committed: string[]; missing: string[]; live: boolean }>("POST", "/api/admin/photos", {
         genre: job.genre,
         event: job.event,
         title: job.title,
@@ -103,6 +110,9 @@ export async function uploadShoot(
         photos: batch.map((r) => r.entry),
       });
       const missingIds = new Set(missing);
+      outcome.live = outcome.live || live;
+      outcome.added += batch.length - missing.length;
+      outcome.failed += missing.length;
       for (const r of batch) {
         onStatus(
           r.file,
@@ -110,7 +120,9 @@ export async function uploadShoot(
         );
       }
     } catch (err) {
+      outcome.failed += batch.length;
       for (const r of batch) onStatus(r.file, { state: "failed", error: messageOf(err) });
     }
   }
+  return outcome;
 }
