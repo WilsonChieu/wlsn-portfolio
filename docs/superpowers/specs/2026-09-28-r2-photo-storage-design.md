@@ -29,7 +29,7 @@ Vercel Web Analytics is already enabled), custom domain, reordering photos, rena
 |---|---|
 | Storage | Cloudflare R2 |
 | Public delivery | Bucket's `r2.dev` URL for now (no custom domain; site stays on `*.vercel.app`). Base URL is a single env var so a custom domain later is a config change. |
-| Resizing | Done once at upload time (browser in admin, `sharp` in the migration script). Pre-built WebP variants, no runtime transforms. |
+| Resizing | Done once at upload time (browser in admin, `sharp` in the migration script). Pre-built JPEG variants, no runtime transforms. |
 | Admin auth | Single password, single user |
 | Admin v1 features | Upload (folder drag-drop), delete photo/shoot, set shoot cover, create category |
 | Tests | Add Vitest for pure helpers only; pages/uploads verified manually in the browser |
@@ -48,11 +48,11 @@ Public bucket keys:
 ```
 _site.json
 <genre>/<event>/_event.json
-<genre>/<event>/<photoId>/w640.webp
-<genre>/<event>/<photoId>/w1280.webp
-<genre>/<event>/<photoId>/w1920.webp
-<genre>/<event>/<photoId>/w2560.webp
-<genre>/<event>/<photoId>/w3840.webp
+<genre>/<event>/<photoId>/w640.jpg
+<genre>/<event>/<photoId>/w1280.jpg
+<genre>/<event>/<photoId>/w1920.jpg
+<genre>/<event>/<photoId>/w2560.jpg
+<genre>/<event>/<photoId>/w3840.jpg
 ```
 
 Private bucket: `<genre>/<event>/<photoId>/original.<ext>`.
@@ -61,8 +61,9 @@ Private bucket: `<genre>/<event>/<photoId>/original.<ext>`.
 the source's native width (never upscaled). This keeps the image loader trivial — it never needs
 to know a photo's real width.
 
-Encoding: WebP, quality 85 (browser `pica` + canvas encode; `sharp` in the script). Orientation
-applied, all metadata stripped.
+Encoding: JPEG, quality 88 (browser `pica` + canvas encode; `sharp` + mozjpeg in the script).
+Orientation applied, all metadata stripped. JPEG rather than WebP because Safari (incl. every
+iPhone browser) cannot encode WebP from a canvas, which would break phone uploads.
 
 ### Manifests
 
@@ -95,6 +96,11 @@ It replaces the hardcoded `GENRE_LABELS` in `lib/works.ts`.
 }
 ```
 
+A photo may carry `"hidden": true`: it exists only to be a cover and is not shown in the public
+gallery or counted. This preserves today's behavior where a separate `cover.jpg` is not part of the
+gallery. Uploaded `cover.*` files become hidden photos; the migration reuses an identical gallery
+photo instead when `cover.*` is a byte-for-byte copy of one.
+
 `cover` is a photo id or `null` (→ first photo). `width`/`height` are the source's native
 dimensions, used for layout aspect ratios. Photo order = array order (natural filename sort within
 each upload batch; new batches append).
@@ -115,7 +121,7 @@ photo ids (from filename without extension). Photo id collisions within a shoot 
   `readImageDimensions`, `findExplicitCover` and `GENRE_LABELS` are removed. `WorkImage.src` becomes
   the photo's key prefix (`concerts/off-the-track/ott-1`).
 - **Image loader** — `next.config.mjs` sets `images.loader: "custom"` with a `loaderFile`
-  (`lib/image-loader.ts`) mapping `(src, width)` → `${NEXT_PUBLIC_PHOTO_BASE_URL}/${src}/w{N}.webp`,
+  (`lib/image-loader.ts`) mapping `(src, width)` → `${NEXT_PUBLIC_PHOTO_BASE_URL}/${src}/w{N}.jpg`,
   where N is the smallest of 640/1280/1920/2560/3840 that is ≥ width (else 3840). Vercel image
   optimization is therefore never invoked. `quality` props become irrelevant and are removed.
 - **Freshness** — pages use ISR (`revalidate = 3600`) and admin mutations call
@@ -156,14 +162,14 @@ photo ids (from filename without extension). Photo id collisions within a shoot 
   same shoot.
 - Also a **Choose folder** button (`<input webkitdirectory>`) and a **Choose photos** button
   (multi-select; the only option on phones, which can't drag folders).
-- Accepted: jpg/jpeg/png/webp/gif, plus anything the browser can decode (HEIC works in Safari
-  only). Everything else (RAW, sidecars, `.DS_Store`) is skipped and listed to the user.
-- A file named `cover.*` becomes the shoot cover.
+- Accepted: jpg/jpeg/png/webp/gif/heic/heif; HEIC decodes in Safari only and fails with an
+  "export as JPG" message elsewhere. Everything else (RAW, sidecars, `.DS_Store`) is skipped and listed to the user.
+- A file named `cover.*` becomes the shoot cover (as a hidden photo, see §3).
 
 ### Upload pipeline (per photo, 2 concurrent)
 
 1. Decode in the browser (`createImageBitmap`, orientation from EXIF); read native width/height.
-2. Generate the five WebP variants with `pica` (high-quality resize) → canvas encode.
+2. Generate the five JPEG variants with `pica` (high-quality resize) → canvas encode.
 3. `POST /api/admin/uploads` → server returns presigned PUT URLs (short expiry) for the five public
    keys and the private original key.
 4. Browser PUTs variants + original directly to R2 (no photo bytes pass through Vercel).
@@ -190,7 +196,7 @@ tolerated).
 
 - Reads `public/work/`, builds `_site.json` (titles/meta from the current `GENRE_LABELS`, the
   graduation genre cover from `graduation/cover.JPG`) and each `_event.json`; uploads variants with
-  `sharp` (lanczos3, WebP q85) and originals to the private bucket.
+  `sharp` (lanczos3, JPEG q88 mozjpeg) and originals to the private bucket.
 - **Blurry covers:** for `concerts/off-the-track/cover.jpg` and `graduation/kenneth-lea/cover.JPG`
   (and the identical `graduation/cover.JPG`), uses the pre-upscale versions from git
   (`799db5e^`) instead of the upscaled files, since upscaling added no detail.
