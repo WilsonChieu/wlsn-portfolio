@@ -1,5 +1,6 @@
 import AboutSection from "@/components/site/AboutSection";
 import CtaFooter from "@/components/site/CtaFooter";
+import CursorTrail from "@/components/site/CursorTrail";
 import FaqSection from "@/components/site/FaqSection";
 import HomeHero from "@/components/site/HomeHero";
 import PresetsSection from "@/components/site/PresetsSection";
@@ -32,6 +33,7 @@ export default async function Home() {
         <FaqSection />
       </main>
       <CtaFooter />
+      <CursorTrail />
     </div>
   );
 }
