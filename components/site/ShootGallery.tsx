@@ -19,7 +19,7 @@ const MODE_KEY = "ct-gallery-mode";
 // Declared at module level so re-renders (e.g. opening the viewer) don't remount every image.
 function Photo({ photo, onOpen }: { photo: GalleryPhoto; onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen} data-photo={photo.id} className="focus-ring group mb-4 block w-full cursor-zoom-in break-inside-avoid overflow-hidden bg-well md:mb-6">
+    <button type="button" onClick={onOpen} data-photo={photo.id} data-cursor="view" className="focus-ring group mb-4 block w-full cursor-zoom-in break-inside-avoid overflow-hidden bg-well md:mb-6">
       <Image
         src={photo.src}
         alt={photo.alt}
@@ -130,7 +130,7 @@ export default function ShootGallery({ title, photos }: { title: string; photos:
         {mode === "grid" && n > 0 && (
           <div className="grid grid-cols-3 gap-1 md:grid-cols-6 md:gap-2">
             {photos.map((p, i) => (
-              <button key={p.id} type="button" onClick={() => open(i)} data-photo={p.id} className="focus-ring relative aspect-square cursor-zoom-in overflow-hidden bg-well">
+              <button key={p.id} type="button" onClick={() => open(i)} data-photo={p.id} data-cursor="view" className="focus-ring relative aspect-square cursor-zoom-in overflow-hidden bg-well">
                 <Image src={p.src} alt={p.alt} fill sizes="(min-width: 768px) 16vw, 33vw" className="object-cover transition-opacity duration-300 hover:opacity-75" />
               </button>
             ))}

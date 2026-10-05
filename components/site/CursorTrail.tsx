@@ -90,8 +90,8 @@ export default function CursorTrail() {
 
   return (
     <>
-      <canvas ref={canvasRef} aria-hidden className="pointer-events-none fixed inset-0 z-40 h-screen w-screen" />
-      <div ref={cursorRef} aria-hidden className="pointer-events-none fixed left-0 top-0 z-[41] opacity-0">
+      <canvas ref={canvasRef} aria-hidden className="pointer-events-none fixed inset-0 z-[80] h-screen w-screen" />
+      <div ref={cursorRef} aria-hidden className="pointer-events-none fixed left-0 top-0 z-[81] opacity-0">
         <div className="-ml-[42px] -mt-[42px] flex h-[84px] w-[84px] scale-[.12] items-center justify-center rounded-full bg-signal font-serif text-[24px] italic text-white transition-transform duration-[350ms] ease-[cubic-bezier(.2,.8,.2,1)]">
           <span className="opacity-0 transition-opacity duration-200">View</span>
         </div>

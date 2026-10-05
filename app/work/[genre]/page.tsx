@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import CursorTrail from "@/components/site/CursorTrail";
 import SiteFooter from "@/components/site/SiteFooter";
 import WorkHeader from "@/components/site/WorkHeader";
 import { pad2, plural } from "@/lib/work-nav";
@@ -40,7 +41,7 @@ export default async function GenrePage({ params }: { params: { genre: string } 
         {genre.events.map((ev, i) => {
           const flip = i % 2 === 1;
           return (
-            <Link key={ev.slug} href={`/work/${genre.slug}/${ev.slug}`} className="focus-ring group flex flex-col gap-3.5 md:grid md:grid-cols-12 md:items-end md:gap-6">
+            <Link key={ev.slug} href={`/work/${genre.slug}/${ev.slug}`} data-cursor="view" className="focus-ring group flex flex-col gap-3.5 md:grid md:grid-cols-12 md:items-end md:gap-6">
               <div className={`relative aspect-[4/5] overflow-hidden bg-well md:row-start-1 md:aspect-[3/2] ${flip ? "md:col-span-7 md:col-start-6" : "md:col-span-7 md:col-start-1"}`}>
                 {ev.cover && <Image src={ev.cover} alt={ev.title} fill sizes="(min-width: 768px) 58vw, 100vw" className="object-cover transition-transform duration-[800ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-safe:group-hover:scale-[1.04]" />}
               </div>
@@ -57,6 +58,7 @@ export default async function GenrePage({ params }: { params: { genre: string } 
         })}
       </main>
       <SiteFooter />
+      <CursorTrail />
     </div>
   );
 }

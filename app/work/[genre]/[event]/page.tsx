@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import CursorTrail from "@/components/site/CursorTrail";
 import ShootGallery from "@/components/site/ShootGallery";
 import SiteFooter from "@/components/site/SiteFooter";
 import WorkHeader from "@/components/site/WorkHeader";
@@ -35,7 +36,7 @@ export default async function EventPage({ params }: { params: { genre: string; e
       </main>
 
       {next && (
-        <Link href={`/work/${next.genreSlug}/${next.eventSlug}`} className="focus-ring group mx-5 mt-[72px] flex flex-col gap-3.5 border-t border-char pb-10 pt-7 md:mx-12 md:mt-40 md:grid md:grid-cols-12 md:items-end md:gap-6 md:pb-[72px] md:pt-12">
+        <Link href={`/work/${next.genreSlug}/${next.eventSlug}`} data-cursor="view" className="focus-ring group mx-5 mt-[72px] flex flex-col gap-3.5 border-t border-char pb-10 pt-7 md:mx-12 md:mt-40 md:grid md:grid-cols-12 md:items-end md:gap-6 md:pb-[72px] md:pt-12">
           <div className="flex flex-col gap-3.5 md:col-span-8 md:gap-[18px]">
             <span className="ct-label text-[11px] tracking-[.16em] md:text-[12px]">Next set →</span>
             <span className="order-last text-[48px] leading-[.9] tracking-[-.03em] transition-colors duration-300 [text-wrap:balance] group-hover:italic group-hover:text-signal md:order-none md:text-[min(8.9vw,128px)] md:leading-[.86] md:tracking-[-.035em]">{next.title}</span>
@@ -46,6 +47,7 @@ export default async function EventPage({ params }: { params: { genre: string; e
         </Link>
       )}
       <SiteFooter />
+      <CursorTrail />
     </div>
   );
 }
