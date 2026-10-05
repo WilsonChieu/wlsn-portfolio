@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SiteFooter from "@/components/site/SiteFooter";
+import WorkHeader from "@/components/site/WorkHeader";
+import { pad2, plural } from "@/lib/work-nav";
 import { getGenre, getGenres } from "@/lib/works";
-import ScrollHeader from "@/components/ScrollHeader";
 
 export const revalidate = 3600;
 
@@ -17,74 +19,44 @@ export async function generateMetadata({ params }: { params: { genre: string } }
 }
 
 export default async function GenrePage({ params }: { params: { genre: string } }) {
-  const genre = await getGenre(params.genre);
+  const [genres, genre] = await Promise.all([getGenres(), getGenre(params.genre)]);
   if (!genre) notFound();
 
   return (
-    <div className="min-h-screen bg-paper">
-      <ScrollHeader overDark={false}>
-        <Link href="/" className="font-display text-lg font-bold uppercase tracking-tight focus-ring">
-          CRISP<span className="text-olive">TAKES</span>
-        </Link>
-        <Link
-          href="/#work"
-          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors hover:text-olive focus-ring"
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4" aria-hidden>
-            <path d="M10 3L5 8l5 5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          All Work
-        </Link>
-      </ScrollHeader>
-
-      <div className="px-6 pb-16 pt-40 md:px-12 md:pt-48">
-        <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/50">
-          {genre.meta}
-        </p>
-        <h1 className="font-display text-5xl font-bold uppercase leading-[0.9] md:text-8xl">
-          {genre.title}
-        </h1>
+    <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
+      <WorkHeader genres={genres} current={genre.slug} back={{ href: "/#work", label: "All work" }} />
+      <div className="flex flex-col gap-3 px-5 pb-6 pt-10 md:gap-[18px] md:px-12 md:pb-20 md:pt-[110px]">
+        <p className="ct-label text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{genre.meta} · {plural(genre.events.length, "event")}</p>
+        <h1 className="text-[96px] leading-[.82] tracking-[-.04em] md:text-[min(19.4vw,280px)] md:leading-[.78] md:tracking-[-.045em]">{genre.title}</h1>
       </div>
+      <nav className="flex gap-[22px] border-b border-char px-5 pb-5 text-[22px] md:hidden">
+        {genres.map((g) => (
+          <Link key={g.slug} href={`/work/${g.slug}`} className={`focus-ring py-2 ${g.slug === genre.slug ? "italic text-signal" : ""}`}>{g.title}</Link>
+        ))}
+      </nav>
 
-      <main className="px-6 pb-24 md:px-12 md:pb-32">
-        {genre.events.length === 0 ? (
-          <p className="font-body text-ink/40">No events yet.</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-3">
-            {genre.events.map((event) => (
-              <Link
-                key={event.slug}
-                href={`/work/${genre.slug}/${event.slug}`}
-                className="group relative block aspect-[4/3] overflow-hidden focus-ring"
-              >
-                {event.cover ? (
-                  <Image
-                    src={event.cover}
-                    alt={event.title}
-                    fill
-                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] group-hover:scale-105"
-                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-line" />
-                )}
-                <div
-                  className="absolute inset-0 bg-ink/20 transition-opacity duration-500 group-hover:bg-ink/50"
-                  aria-hidden
-                />
-                <div className="absolute inset-x-0 bottom-0 p-5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-paper/60">
-                    {event.images.length} {event.images.length === 1 ? "photo" : "photos"}
-                  </p>
-                  <h2 className="mt-1 font-display text-xl font-bold uppercase leading-tight text-paper md:text-2xl">
-                    {event.title}
-                  </h2>
+      <main className="flex flex-col gap-12 px-5 pb-16 pt-7 md:gap-[140px] md:px-12 md:pb-[140px] md:pt-10">
+        {genre.events.length === 0 && <p className="text-[32px] italic text-mute">No shoots yet.</p>}
+        {genre.events.map((ev, i) => {
+          const flip = i % 2 === 1;
+          return (
+            <Link key={ev.slug} href={`/work/${genre.slug}/${ev.slug}`} className="focus-ring group flex flex-col gap-3.5 md:grid md:grid-cols-12 md:items-end md:gap-6">
+              <div className={`relative aspect-[4/5] overflow-hidden bg-well md:row-start-1 md:aspect-[3/2] ${flip ? "md:col-span-7 md:col-start-6" : "md:col-span-7 md:col-start-1"}`}>
+                {ev.cover && <Image src={ev.cover} alt={ev.title} fill sizes="(min-width: 768px) 58vw, 100vw" className="object-cover transition-transform duration-[800ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-safe:group-hover:scale-[1.04]" />}
+              </div>
+              <div className={`flex flex-col gap-3.5 md:row-start-1 md:gap-4 md:pb-1.5 ${flip ? "md:col-span-4 md:col-start-1" : "md:col-span-4 md:col-start-9"}`}>
+                <p className="ct-label text-[11px] tracking-[.16em] md:text-[12px]">{pad2(i + 1)} — {plural(ev.images.length, "photo")}</p>
+                <div className="flex items-end justify-between gap-4 md:block">
+                  <h2 className="text-[40px] leading-[.95] tracking-[-.02em] transition-colors duration-300 [text-wrap:balance] group-hover:italic group-hover:text-signal md:text-[min(5.8vw,84px)] md:leading-[.92] md:tracking-[-.03em]">{ev.title}</h2>
+                  <span className="flex-none text-[24px] italic md:hidden">→</span>
                 </div>
-              </Link>
-            ))}
-          </div>
-        )}
+                <span className="hidden text-[26px] italic md:block">View set →</span>
+              </div>
+            </Link>
+          );
+        })}
       </main>
+      <SiteFooter />
     </div>
   );
 }
