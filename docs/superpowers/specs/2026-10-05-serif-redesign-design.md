@@ -49,7 +49,7 @@ All lists come from `getGenres()` (R2 manifests):
   (category 1 shoot 1, category 2 shoot 1, …), using each shoot's cover. Label
   `Frame 0k / 0N` + shoot title; clicking opens that shoot. The top-right hero label shows the
   **featured shoot** constant (`concerts/off-the-track`, as today) if it exists, else the first frame.
-- **Editorial rows:** the prototype's `deskRows` / `mobRows` algorithm, with each photo classified
+- **Editorial rows** *(superseded 2026-10-05: Wilson preferred a plain masonry — CSS columns 1/2/3, natural aspect ratios, no counter labels; the row algorithm was removed)*: the prototype's `deskRows` / `mobRows` algorithm, with each photo classified
   `P` (portrait, `height > width`) or `L` from the manifest's native dimensions. Hidden (cover-only)
   photos are excluded, as today.
 - **Next set:** the next shoot in category order, then across categories, wrapping to the first.

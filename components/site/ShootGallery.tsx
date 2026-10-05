@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { desktopRows, mobileRows, orientationOf } from "@/lib/editorial";
 import PhotoViewer from "@/components/site/PhotoViewer";
-import { pad2, photoIndex, stepIndex } from "@/lib/work-nav";
+import { photoIndex, stepIndex } from "@/lib/work-nav";
 
 export interface GalleryPhoto {
   id: string;
@@ -18,13 +17,17 @@ type Mode = "editorial" | "grid";
 const MODE_KEY = "ct-gallery-mode";
 
 // Declared at module level so re-renders (e.g. opening the viewer) don't remount every image.
-function Photo({ photo, label, ratio, sizes, onOpen }: { photo: GalleryPhoto; label: string; ratio: string; sizes: string; onOpen: () => void }) {
+function Photo({ photo, onOpen }: { photo: GalleryPhoto; onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen} data-photo={photo.id} className="focus-ring group flex w-full cursor-zoom-in flex-col gap-1.5 text-left md:gap-2.5">
-      <span className="relative block w-full overflow-hidden bg-well" style={{ aspectRatio: ratio }}>
-        <Image src={photo.src} alt={photo.alt} fill sizes={sizes} className="object-cover transition-transform duration-[800ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-safe:group-hover:scale-[1.03]" />
-      </span>
-      <span className="font-jet text-[10px] tracking-[.12em] text-mute md:text-[11px]">{label}</span>
+    <button type="button" onClick={onOpen} data-photo={photo.id} className="focus-ring group mb-4 block w-full cursor-zoom-in break-inside-avoid overflow-hidden bg-well md:mb-6">
+      <Image
+        src={photo.src}
+        alt={photo.alt}
+        width={photo.width}
+        height={photo.height}
+        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+        className="block h-auto w-full transition-transform duration-[800ms] ease-[cubic-bezier(.2,.7,.2,1)] motion-safe:group-hover:scale-[1.02]"
+      />
     </button>
   );
 }
@@ -38,9 +41,6 @@ function urlWithPhoto(id: string | null): string {
 
 export default function ShootGallery({ title, photos }: { title: string; photos: GalleryPhoto[] }) {
   const [mode, setMode] = useState<Mode>("editorial");
-  const shapes = useMemo(() => photos.map((p) => orientationOf(p.width, p.height)), [photos]);
-  const desk = useMemo(() => desktopRows(shapes), [shapes]);
-  const mob = useMemo(() => mobileRows(shapes), [shapes]);
   const n = photos.length;
 
   useEffect(() => {
@@ -100,9 +100,7 @@ export default function ShootGallery({ title, photos }: { title: string; photos:
       lastOpen.current = photos[index]?.id ?? null;
     } else if (lastOpen.current) {
       // Return keyboard focus to the photo that was open.
-      // Editorial renders separate desktop and mobile copies; focus whichever one is actually visible.
-      const copies = document.querySelectorAll<HTMLElement>(`[data-photo="${lastOpen.current}"]`);
-      Array.from(copies).find((el) => el.offsetParent !== null)?.focus();
+      document.querySelector<HTMLElement>(`[data-photo="${lastOpen.current}"]`)?.focus();
       lastOpen.current = null;
     }
   }, [index, photos]);
@@ -110,7 +108,6 @@ export default function ShootGallery({ title, photos }: { title: string; photos:
   const pill = (m: Mode, label: string) => (
     <button type="button" onClick={() => choose(m)} aria-pressed={mode === m} className={`focus-ring rounded-full px-[18px] py-2.5 md:px-5 md:py-2 ${mode === m ? "bg-char text-bone" : ""}`}>{label}</button>
   );
-  const label = (i: number) => `${pad2(i + 1)} / ${pad2(n)}`;
 
   return (
     <>
@@ -123,28 +120,11 @@ export default function ShootGallery({ title, photos }: { title: string; photos:
         {n === 0 && <p className="text-[32px] italic text-mute">No photos yet.</p>}
 
         {mode === "editorial" && n > 0 && (
-          <>
-            <div className="hidden flex-col gap-20 md:flex">
-              {desk.map((row, r) => (
-                <div key={r} className="grid grid-cols-12 gap-6" style={{ alignItems: row.align }}>
-                  {row.items.map((it) => (
-                    <div key={it.index} style={{ gridColumn: `${it.start} / span ${it.span}` }}>
-                      <Photo photo={photos[it.index]} label={label(it.index)} ratio={it.ratio} sizes={`${Math.round((it.span / 12) * 100)}vw`} onOpen={() => open(it.index)} />
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col gap-7 md:hidden">
-              {mob.map((row, r) => (
-                <div key={r} className={`grid gap-2 ${row.items.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-                  {row.items.map((it) => (
-                    <Photo key={it.index} photo={photos[it.index]} label={label(it.index)} ratio={it.ratio} sizes={row.items.length > 1 ? "50vw" : "100vw"} onOpen={() => open(it.index)} />
-                  ))}
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="columns-1 gap-4 sm:columns-2 md:gap-6 lg:columns-3">
+            {photos.map((p, i) => (
+              <Photo key={p.id} photo={p} onOpen={() => open(i)} />
+            ))}
+          </div>
         )}
 
         {mode === "grid" && n > 0 && (

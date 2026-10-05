@@ -94,7 +94,8 @@ The same code deploys to two Vercel projects; `SITE_MODE` decides what each serv
 ## Public design ("Serif Editorial", 2026-10)
 
 - Source: Claude Design handoff (Home + Work prototypes); spec `docs/superpowers/specs/2026-10-05-serif-redesign-design.md`.
-- Public components live in `components/site/`; copy (FAQ, about, presets, socials, WhatsApp) in `lib/site-content.ts`; layout logic in `lib/editorial.ts` and `lib/work-nav.ts`.
+- Public components live in `components/site/`; copy (FAQ, about, presets, socials, WhatsApp) in `lib/site-content.ts`; navigation logic in `lib/work-nav.ts`; intro decision in `lib/intro.ts`.
+- Shoot pages: "Editorial" is a plain masonry (CSS columns 1/2/3, natural aspect ratios, no labels — Wilson preferred it over the prototype's staggered rows); "Grid" is square thumbnails.
 - Colours `bone/char/signal/...` and fonts `font-serif` (Instrument Serif) / `font-jet` (JetBrains Mono) are for the public site; the admin keeps `paper/ink/olive`.
 - Presets section is built but off: `PRESETS_ENABLED` in `lib/site-content.ts`.
 - Homepage intro plays once per browser session (`ct-intro-seen`); a pre-paint script sets `html[data-intro="skip"]` for repeat visits and reduced motion.
