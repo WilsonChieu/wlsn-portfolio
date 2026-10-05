@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { INTRO_SEEN_KEY, shouldPlayIntro } from "@/lib/intro";
+import { INTRO_SEEN_KEY, introAction } from "@/lib/intro";
 import { HERO_LINE, HERO_TAGS } from "@/lib/site-content";
 import { pad2, type ShootRef } from "@/lib/work-nav";
 
@@ -38,7 +38,7 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
     try {
       seen = sessionStorage.getItem(INTRO_SEEN_KEY) !== null;
     } catch {}
-    const play = shouldPlayIntro({
+    const action = introAction({
       flag: html.dataset.intro,
       seen,
       reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -61,6 +61,7 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
     };
 
     const mountedAt = performance.now();
+    let startedAt: number | null = null;
     const settle = () => {
       html.dataset.intro = "skip";
       try {
@@ -68,66 +69,83 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
       } catch {}
     };
 
-    if (!play) {
+    if (action === "skip") {
       settle();
       startSlides();
       return () => window.clearInterval(slideTimer);
     }
 
-    // Registered before any animation so an exception below can't leave the page covered.
-    timers.push(
-      window.setTimeout(() => {
-        anims.forEach((a) => a.finish());
-        settle();
-      }, 6000)
-    );
-    const A = (el: Element | null, kf: Keyframe[], o: KeyframeAnimationOptions) => {
-      if (!el) return;
-      const a = el.animate(kf, { fill: "both", ...o });
-      anims.push(a);
-      return a;
-    };
-    const q = (s: string) => root.querySelectorAll(s);
-    const one = (s: string) => overlay.querySelector(s);
-    const ease = "cubic-bezier(.83,0,.17,1)";
-    const out = "cubic-bezier(.16,1,.3,1)";
-    const SPLIT = 1650;
+    const runIntro = () => {
+      startedAt = performance.now();
 
-    try {
-      const t0 = performance.now();
-      const count = (t: number) => {
-        const k = Math.min(1, (t - t0) / 1200);
-        const v = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-        if (countRef.current) countRef.current.textContent = String(Math.round(v * 100)).padStart(3, "0");
-        if (k < 1) raf = requestAnimationFrame(count);
+      // Registered before any animation so an exception below can't leave the page covered.
+      timers.push(
+        window.setTimeout(() => {
+          anims.forEach((a) => a.finish());
+          settle();
+        }, 6000)
+      );
+      const A = (el: Element | null, kf: Keyframe[], o: KeyframeAnimationOptions) => {
+        if (!el) return;
+        const a = el.animate(kf, { fill: "both", ...o });
+        anims.push(a);
+        return a;
       };
-      raf = requestAnimationFrame(count);
+      const q = (s: string) => root.querySelectorAll(s);
+      const one = (s: string) => overlay.querySelector(s);
+      const ease = "cubic-bezier(.83,0,.17,1)";
+      const out = "cubic-bezier(.16,1,.3,1)";
+      const SPLIT = 1650;
 
-      A(one("[data-label]"), [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-24px)" }], { duration: 380, delay: 1300, easing: "cubic-bezier(.4,0,1,1)" });
-      A(one("[data-seam]"), [{ transform: "scaleX(0)", opacity: 1 }, { transform: "scaleX(1)", opacity: 1 }], { duration: 420, delay: 1300, easing: out });
-      A(one("[data-seam]"), [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: SPLIT + 100, fill: "forwards", composite: "replace" });
-      A(one('[data-half="top"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,-100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
-      const last = A(one('[data-half="bot"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
-      if (last) last.onfinish = settle;
+      try {
+        const t0 = performance.now();
+        const count = (t: number) => {
+          const k = Math.min(1, (t - t0) / 1200);
+          const v = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+          if (countRef.current) countRef.current.textContent = String(Math.round(v * 100)).padStart(3, "0");
+          if (k < 1) raf = requestAnimationFrame(count);
+        };
+        raf = requestAnimationFrame(count);
 
-      q(".ct-rise").forEach((el, i) => A(el, [{ transform: "translate3d(0,105%,0)" }, { transform: "translate3d(0,0,0)" }], { duration: 1100, delay: SPLIT + 300 + i * 50, easing: out }));
-      q(".ct-shot").forEach((el) => A(el, [{ clipPath: "inset(50% 0 50% 0)" }, { clipPath: "inset(0% 0 0% 0)" }], { duration: 1000, delay: SPLIT + 450, easing: ease }));
-      q(".ct-fade").forEach((el, i) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650 + i * 50, easing: out }));
-      document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
+        A(one("[data-label]"), [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-24px)" }], { duration: 380, delay: 1300, easing: "cubic-bezier(.4,0,1,1)" });
+        A(one("[data-seam]"), [{ transform: "scaleX(0)", opacity: 1 }, { transform: "scaleX(1)", opacity: 1 }], { duration: 420, delay: 1300, easing: out });
+        A(one("[data-seam]"), [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: SPLIT + 100, fill: "forwards", composite: "replace" });
+        A(one('[data-half="top"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,-100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
+        const last = A(one('[data-half="bot"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
+        if (last) last.onfinish = settle;
 
-      // The burst: flick through every frame once while the window opens, ending on the last.
-      frames.forEach((_, i) => timers.push(window.setTimeout(() => { setPrevious(null); setCurrent(i); }, SPLIT + 600 + i * 120)));
-      timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
-    } catch {
-      anims.forEach((x) => x.cancel());
-      settle();
-      startSlides();
-    }
+        q(".ct-rise").forEach((el, i) => A(el, [{ transform: "translate3d(0,105%,0)" }, { transform: "translate3d(0,0,0)" }], { duration: 1100, delay: SPLIT + 300 + i * 50, easing: out }));
+        q(".ct-shot").forEach((el) => A(el, [{ clipPath: "inset(50% 0 50% 0)" }, { clipPath: "inset(0% 0 0% 0)" }], { duration: 1000, delay: SPLIT + 450, easing: ease }));
+        q(".ct-fade").forEach((el, i) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650 + i * 50, easing: out }));
+        document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
+
+        // The burst: flick through every frame once while the window opens, ending on the last.
+        frames.forEach((_, i) => timers.push(window.setTimeout(() => { setPrevious(null); setCurrent(i); }, SPLIT + 600 + i * 120)));
+        timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
+      } catch {
+        anims.forEach((x) => x.cancel());
+        settle();
+        startSlides();
+      }
+    };
+
+    // A pre-rendered or background page starts its intro the moment it is actually shown.
+    const onVisible = () => {
+      if (document.hidden) return;
+      document.removeEventListener("visibilitychange", onVisible);
+      runIntro();
+    };
+    if (action === "play") runIntro();
+    else document.addEventListener("visibilitychange", onVisible);
 
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       // Leaving mid-intro (e.g. clicking a hero frame) must not leave the hidden pre-state behind for the next
       // visit to /. React's dev-only double effect run cleans up instantly, so that case is ignored.
-      if (performance.now() - mountedAt > 50) settle();
+      if (performance.now() - mountedAt > 50) {
+        if (startedAt === null) html.dataset.intro = "skip";
+        else settle();
+      }
       anims.forEach((a) => a.cancel());
       timers.forEach((t) => window.clearTimeout(t));
       window.clearInterval(slideTimer);
