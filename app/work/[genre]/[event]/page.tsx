@@ -1,8 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ShootGallery from "@/components/site/ShootGallery";
+import SiteFooter from "@/components/site/SiteFooter";
+import WorkHeader from "@/components/site/WorkHeader";
+import { nextShoot, plural } from "@/lib/work-nav";
 import { getEvent, getGenres } from "@/lib/works";
-import ScrollHeader from "@/components/ScrollHeader";
 
 export const revalidate = 3600;
 
@@ -17,84 +20,32 @@ export async function generateMetadata({ params }: { params: { genre: string; ev
 }
 
 export default async function EventPage({ params }: { params: { genre: string; event: string } }) {
-  const event = await getEvent(params.genre, params.event);
+  const [genres, event] = await Promise.all([getGenres(), getEvent(params.genre, params.event)]);
   if (!event) notFound();
-
-  const genreLabel = event.genreTitle;
+  const next = nextShoot(genres, event.genreSlug, event.slug);
+  const photos = event.images.map((img) => ({ id: img.id, src: img.src, width: img.width, height: img.height, alt: img.alt }));
 
   return (
-    <div className="min-h-screen bg-paper">
-      <ScrollHeader>
-        <Link href="/" className="font-display text-lg font-bold uppercase tracking-tight focus-ring">
-          CRISP<span className="text-olive">TAKES</span>
-        </Link>
-        <Link
-          href={`/work/${params.genre}`}
-          className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors hover:text-olive focus-ring"
-        >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4" aria-hidden>
-            <path d="M10 3L5 8l5 5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {genreLabel}
-        </Link>
-      </ScrollHeader>
-
-      {/* Hero */}
-      <div className="relative h-[60vh] w-full overflow-hidden md:h-[75vh]">
-        <Image
-          src={event.cover}
-          alt={event.title}
-          fill
-          className="object-cover"
-          sizes="100vw"
-          priority
-        />
-        <div className="absolute inset-0 bg-ink/35" aria-hidden />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ink/70 to-transparent"
-          aria-hidden
-        />
-        <div className="absolute inset-x-0 bottom-0 p-6 md:p-12">
-          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-paper/60">
-            {genreLabel} · {event.images.length} {event.images.length === 1 ? "photo" : "photos"}
-          </p>
-          <h1 className="font-display text-5xl font-bold uppercase leading-[0.9] text-paper md:text-8xl">
-            {event.title}
-          </h1>
-        </div>
-      </div>
-
-      {/* Gallery */}
-      <main className="px-6 py-16 md:px-12 md:py-24">
-        <div className="columns-1 gap-4 sm:columns-2 md:gap-6 lg:columns-3">
-          {event.images.map((img, i) => (
-            <div key={i} className="mb-4 break-inside-avoid overflow-hidden md:mb-6">
-              <Image
-                src={img.src}
-                alt={img.alt}
-                width={img.width}
-                height={img.height}
-                className="w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.2,0.7,0.2,1)] hover:scale-[1.02]"
-                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              />
-            </div>
-          ))}
-        </div>
+    <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
+      <WorkHeader genres={genres} current={event.genreSlug} back={{ href: `/work/${event.genreSlug}`, label: event.genreTitle }} />
+      <main className="flex flex-col gap-3.5 px-5 pt-9 md:grid md:grid-cols-12 md:items-end md:gap-6 md:px-12 md:pt-[100px]">
+        <p className="ct-label col-span-12 text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{event.genreTitle} · {plural(photos.length, "photo")}</p>
+        <h1 className="col-span-9 text-[68px] leading-[.86] tracking-[-.035em] [text-wrap:balance] md:mb-14 md:text-[min(12.8vw,184px)] md:leading-[.84] md:tracking-[-.04em]">{event.title}</h1>
+        <ShootGallery title={event.title} photos={photos} />
       </main>
 
-      <footer className="border-t border-line px-6 py-8 md:px-12">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/40">
-            CRISPTAKES
-          </span>
-          <Link
-            href={`/work/${params.genre}`}
-            className="font-mono text-[11px] uppercase tracking-[0.16em] transition-colors hover:text-olive focus-ring"
-          >
-            ← Back to {genreLabel}
-          </Link>
-        </div>
-      </footer>
+      {next && (
+        <Link href={`/work/${next.genreSlug}/${next.eventSlug}`} className="focus-ring group mx-5 mt-[72px] flex flex-col gap-3.5 border-t border-char pb-10 pt-7 md:mx-12 md:mt-40 md:grid md:grid-cols-12 md:items-end md:gap-6 md:pb-[72px] md:pt-12">
+          <div className="flex flex-col gap-3.5 md:col-span-8 md:gap-[18px]">
+            <span className="ct-label text-[11px] tracking-[.16em] md:text-[12px]">Next set →</span>
+            <span className="order-last text-[48px] leading-[.9] tracking-[-.03em] transition-colors duration-300 [text-wrap:balance] group-hover:italic group-hover:text-signal md:order-none md:text-[min(8.9vw,128px)] md:leading-[.86] md:tracking-[-.035em]">{next.title}</span>
+          </div>
+          <div className="relative aspect-[3/2] overflow-hidden bg-well md:col-span-4">
+            {next.cover && <Image src={next.cover} alt="" fill sizes="(min-width: 768px) 33vw, 100vw" className="object-cover" />}
+          </div>
+        </Link>
+      )}
+      <SiteFooter />
     </div>
   );
 }
