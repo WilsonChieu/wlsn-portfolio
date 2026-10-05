@@ -4,6 +4,7 @@ import { SITE_MANIFEST_KEY, eventManifestKey, photoKey } from "@/lib/photo-keys"
 import { getJson } from "@/lib/r2";
 
 export interface WorkImage {
+  id: string;
   src: string;
   alt: string;
   width: number;
@@ -47,6 +48,7 @@ export const getGenres = cache(async (): Promise<WorkGenre[]> => {
             images: manifest.photos
               .filter((p) => !p.hidden)
               .map((p) => ({
+                id: p.id,
                 src: photoKey(genre.slug, slug, p.id),
                 alt: `${manifest.title} — ${p.id}`,
                 width: p.width,
