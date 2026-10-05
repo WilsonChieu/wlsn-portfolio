@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { INTRO_SEEN_KEY, shouldPlayIntro } from "@/lib/intro";
 import { HERO_LINE, HERO_TAGS } from "@/lib/site-content";
 import { pad2, type ShootRef } from "@/lib/work-nav";
 
@@ -31,9 +32,19 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
   useEffect(() => {
     const root = rootRef.current;
     const overlay = overlayRef.current;
-    if (!root || !overlay || frames.length === 0) return;
-    // The pre-paint script already marks reduced-motion visitors as "skip".
-    const skip = document.documentElement.dataset.intro === "skip";
+    if (!root || !overlay) return;
+    const html = document.documentElement;
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem(INTRO_SEEN_KEY) !== null;
+    } catch {}
+    const play = shouldPlayIntro({
+      flag: html.dataset.intro,
+      seen,
+      reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+      hidden: document.hidden,
+      frames: frames.length,
+    });
     const anims: Animation[] = [];
     const timers: number[] = [];
     let slideTimer = 0;
@@ -49,16 +60,27 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
       if (frames.length > 1) slideTimer = window.setInterval(advance, 2600);
     };
 
-    // A tab opened in the background would freeze the animations mid-way, so it gets the settled hero instead.
-    if (skip || document.hidden) {
-      document.documentElement.dataset.intro = "skip";
+    const mountedAt = performance.now();
+    const settle = () => {
+      html.dataset.intro = "skip";
+      try {
+        sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+      } catch {}
+    };
+
+    if (!play) {
+      settle();
       startSlides();
       return () => window.clearInterval(slideTimer);
     }
 
-    try {
-      sessionStorage.setItem("ct-intro-seen", "1");
-    } catch {}
+    // Registered before any animation so an exception below can't leave the page covered.
+    timers.push(
+      window.setTimeout(() => {
+        anims.forEach((a) => a.finish());
+        settle();
+      }, 6000)
+    );
     const A = (el: Element | null, kf: Keyframe[], o: KeyframeAnimationOptions) => {
       if (!el) return;
       const a = el.animate(kf, { fill: "both", ...o });
@@ -71,41 +93,41 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
     const out = "cubic-bezier(.16,1,.3,1)";
     const SPLIT = 1650;
 
-    const t0 = performance.now();
-    const count = (t: number) => {
-      const k = Math.min(1, (t - t0) / 1200);
-      const v = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      if (countRef.current) countRef.current.textContent = String(Math.round(v * 100)).padStart(3, "0");
-      if (k < 1) raf = requestAnimationFrame(count);
-    };
-    raf = requestAnimationFrame(count);
+    try {
+      const t0 = performance.now();
+      const count = (t: number) => {
+        const k = Math.min(1, (t - t0) / 1200);
+        const v = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        if (countRef.current) countRef.current.textContent = String(Math.round(v * 100)).padStart(3, "0");
+        if (k < 1) raf = requestAnimationFrame(count);
+      };
+      raf = requestAnimationFrame(count);
 
-    A(one("[data-label]"), [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-24px)" }], { duration: 380, delay: 1300, easing: "cubic-bezier(.4,0,1,1)" });
-    A(one("[data-seam]"), [{ transform: "scaleX(0)", opacity: 1 }, { transform: "scaleX(1)", opacity: 1 }], { duration: 420, delay: 1300, easing: out });
-    A(one("[data-seam]"), [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: SPLIT + 100, fill: "forwards", composite: "replace" });
-    A(one('[data-half="top"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,-100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
-    const last = A(one('[data-half="bot"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
-    if (last) last.onfinish = () => { overlay.style.display = "none"; };
+      A(one("[data-label]"), [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-24px)" }], { duration: 380, delay: 1300, easing: "cubic-bezier(.4,0,1,1)" });
+      A(one("[data-seam]"), [{ transform: "scaleX(0)", opacity: 1 }, { transform: "scaleX(1)", opacity: 1 }], { duration: 420, delay: 1300, easing: out });
+      A(one("[data-seam]"), [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: SPLIT + 100, fill: "forwards", composite: "replace" });
+      A(one('[data-half="top"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,-100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
+      const last = A(one('[data-half="bot"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
+      if (last) last.onfinish = settle;
 
-    q(".ct-rise").forEach((el, i) => A(el, [{ transform: "translate3d(0,105%,0)" }, { transform: "translate3d(0,0,0)" }], { duration: 1100, delay: SPLIT + 300 + i * 50, easing: out }));
-    q(".ct-shot").forEach((el) => A(el, [{ clipPath: "inset(50% 0 50% 0)" }, { clipPath: "inset(0% 0 0% 0)" }], { duration: 1000, delay: SPLIT + 450, easing: ease }));
-    q(".ct-fade").forEach((el, i) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650 + i * 50, easing: out }));
-    document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
+      q(".ct-rise").forEach((el, i) => A(el, [{ transform: "translate3d(0,105%,0)" }, { transform: "translate3d(0,0,0)" }], { duration: 1100, delay: SPLIT + 300 + i * 50, easing: out }));
+      q(".ct-shot").forEach((el) => A(el, [{ clipPath: "inset(50% 0 50% 0)" }, { clipPath: "inset(0% 0 0% 0)" }], { duration: 1000, delay: SPLIT + 450, easing: ease }));
+      q(".ct-fade").forEach((el, i) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650 + i * 50, easing: out }));
+      document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
 
-    // The burst: flick through every frame once while the window opens, ending on the last.
-    frames.forEach((_, i) => timers.push(window.setTimeout(() => { setPrevious(null); setCurrent(i); }, SPLIT + 600 + i * 120)));
-    timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
-
-    // Safety net: if anything above throws or is cut short, never leave the page hidden.
-    timers.push(
-      window.setTimeout(() => {
-        anims.forEach((a) => a.finish());
-        overlay.style.display = "none";
-        document.documentElement.dataset.intro = "skip";
-      }, 6000)
-    );
+      // The burst: flick through every frame once while the window opens, ending on the last.
+      frames.forEach((_, i) => timers.push(window.setTimeout(() => { setPrevious(null); setCurrent(i); }, SPLIT + 600 + i * 120)));
+      timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
+    } catch {
+      anims.forEach((x) => x.cancel());
+      settle();
+      startSlides();
+    }
 
     return () => {
+      // Leaving mid-intro (e.g. clicking a hero frame) must not leave the hidden pre-state behind for the next
+      // visit to /. React's dev-only double effect run cleans up instantly, so that case is ignored.
+      if (performance.now() - mountedAt > 50) settle();
       anims.forEach((a) => a.cancel());
       timers.forEach((t) => window.clearTimeout(t));
       window.clearInterval(slideTimer);
@@ -115,13 +137,6 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
 
   return (
     <section ref={rootRef} className="relative h-[205vw] overflow-hidden md:h-[min(59.7vw,860px)]">
-        <script
-          // Runs before paint so returning visitors (or reduced-motion users) never see the intro's hidden pre-state.
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{if(sessionStorage.getItem('ct-intro-seen')||matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.dataset.intro='skip'}catch(e){document.documentElement.dataset.intro='skip'}",
-          }}
-        />
         <div ref={overlayRef} aria-hidden className="ct-overlay pointer-events-none fixed inset-0 z-50">
           <div data-half="top" className="absolute inset-x-0 top-0 h-1/2 bg-char will-change-transform" />
           <div data-half="bot" className="absolute inset-x-0 bottom-0 h-[50.2%] bg-char will-change-transform" />

@@ -70,17 +70,25 @@ export default function ShootGallery({ title, photos }: { title: string; photos:
       return nextI;
     });
   }, [photos]);
+  // history.back() resolves asynchronously; without this a double-click or held Esc pops twice and leaves the page.
+  const closing = useRef(false);
   const close = useCallback(() => {
+    if (closing.current) return;
     // Closing pops our own history entry so Back and the ✕ button behave the same.
-    if (window.history.state?.ctPhoto) window.history.back();
-    else {
+    if (window.history.state?.ctPhoto) {
+      closing.current = true;
+      window.history.back();
+    } else {
       window.history.replaceState(null, "", urlWithPhoto(null));
       setIndex(-1);
     }
   }, []);
 
   useEffect(() => {
-    const sync = () => setIndex(photoIndex(photos, new URLSearchParams(window.location.search).get("photo")));
+    const sync = () => {
+      closing.current = false;
+      setIndex(photoIndex(photos, new URLSearchParams(window.location.search).get("photo")));
+    };
     sync();
     window.addEventListener("popstate", sync);
     return () => window.removeEventListener("popstate", sync);
@@ -90,14 +98,11 @@ export default function ShootGallery({ title, photos }: { title: string; photos:
   useEffect(() => {
     if (index >= 0) {
       lastOpen.current = photos[index]?.id ?? null;
-      // Warm the neighbours so stepping through the set feels instant.
-      for (const d of [1, -1]) {
-        const p = photos[stepIndex(index, d, photos.length)];
-        if (p) new window.Image().src = `${process.env.NEXT_PUBLIC_PHOTO_BASE_URL}/${p.src}/w1920.jpg`;
-      }
     } else if (lastOpen.current) {
       // Return keyboard focus to the photo that was open.
-      document.querySelector<HTMLElement>(`[data-photo="${lastOpen.current}"]`)?.focus();
+      // Editorial renders separate desktop and mobile copies; focus whichever one is actually visible.
+      const copies = document.querySelectorAll<HTMLElement>(`[data-photo="${lastOpen.current}"]`);
+      Array.from(copies).find((el) => el.offsetParent !== null)?.focus();
       lastOpen.current = null;
     }
   }, [index, photos]);

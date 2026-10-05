@@ -29,9 +29,9 @@ export default async function GenrePage({ params }: { params: { genre: string } 
         <p className="ct-label text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{genre.meta} · {plural(genre.events.length, "event")}</p>
         <h1 className="text-[96px] leading-[.82] tracking-[-.04em] md:text-[min(19.4vw,280px)] md:leading-[.78] md:tracking-[-.045em]">{genre.title}</h1>
       </div>
-      <nav className="flex gap-[22px] border-b border-char px-5 pb-5 text-[22px] md:hidden">
+      <nav className="flex gap-[22px] overflow-x-auto whitespace-nowrap border-b border-char px-5 pb-5 text-[22px] [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
         {genres.map((g) => (
-          <Link key={g.slug} href={`/work/${g.slug}`} className={`focus-ring py-2 ${g.slug === genre.slug ? "italic text-signal" : ""}`}>{g.title}</Link>
+          <Link key={g.slug} href={`/work/${g.slug}`} className={`focus-ring shrink-0 py-2 ${g.slug === genre.slug ? "italic text-signal" : ""}`}>{g.title}</Link>
         ))}
       </nav>
 

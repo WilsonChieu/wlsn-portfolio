@@ -87,11 +87,12 @@ body {
   letter-spacing: 0.14em;
 }
 
-/* Intro pre-state; html[data-intro="skip"] (set before paint) shows the settled hero instead. */
-html:not([data-intro="skip"]) .ct-rise { transform: translateY(105%); }
-html:not([data-intro="skip"]) .ct-fade { opacity: 0; }
-html:not([data-intro="skip"]) .ct-shot { clip-path: inset(50% 0 50% 0); }
-html[data-intro="skip"] .ct-overlay { display: none; }
+/* Intro pre-state applies only while the pre-paint script has opted in with data-intro="play";
+   without JS, or once settled, the hero renders normally. */
+html[data-intro="play"] .ct-rise { transform: translateY(105%); }
+html[data-intro="play"] .ct-fade { opacity: 0; }
+html[data-intro="play"] .ct-shot { clip-path: inset(50% 0 50% 0); }
+html:not([data-intro="play"]) .ct-overlay { display: none; }
 
 @keyframes ct-marquee {
   from { transform: translateX(0); }

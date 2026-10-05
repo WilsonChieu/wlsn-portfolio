@@ -7,6 +7,7 @@ import PresetsSection from "@/components/site/PresetsSection";
 import SelectedWork from "@/components/site/SelectedWork";
 import SerifMarquee from "@/components/site/SerifMarquee";
 import SiteHeader from "@/components/site/SiteHeader";
+import { INTRO_SCRIPT } from "@/lib/intro";
 import { FEATURED_SHOOT, PRESETS_ENABLED } from "@/lib/site-content";
 import { slideshowFrames, type ShootRef } from "@/lib/work-nav";
 import { getGenres } from "@/lib/works";
@@ -23,6 +24,8 @@ export default async function Home() {
 
   return (
     <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
+      {/* Before the header so nothing paints before the intro decides; omitted when there's nothing to reveal. */}
+      {frames.length > 0 && <script dangerouslySetInnerHTML={{ __html: INTRO_SCRIPT }} />}
       <SiteHeader />
       <main>
         <HomeHero frames={frames} featured={featured} />
