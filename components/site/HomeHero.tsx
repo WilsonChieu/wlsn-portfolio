@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { HERO_LINE, HERO_TAGS } from "@/lib/site-content";
@@ -18,10 +19,119 @@ function Word({ text, className }: { text: string; className?: string }) {
 }
 
 export default function HomeHero({ frames, featured }: { frames: ShootRef[]; featured: ShootRef | null }) {
-  const frame = frames[frames.length - 1];
+  const rootRef = useRef<HTMLElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const countRef = useRef<HTMLSpanElement>(null);
+  const [current, setCurrent] = useState(Math.max(0, frames.length - 1));
+  const [previous, setPrevious] = useState<number | null>(null);
+  const frame = frames[current];
+  const currentRef = useRef(current);
+  currentRef.current = current;
   const total = frames.length;
+  useEffect(() => {
+    const root = rootRef.current;
+    const overlay = overlayRef.current;
+    if (!root || !overlay || frames.length === 0) return;
+    // The pre-paint script already marks reduced-motion visitors as "skip".
+    const skip = document.documentElement.dataset.intro === "skip";
+    const anims: Animation[] = [];
+    const timers: number[] = [];
+    let slideTimer = 0;
+    let raf = 0;
+
+    const advance = () => {
+      if (document.hidden) return;
+      const c = currentRef.current;
+      setPrevious(c);
+      setCurrent((c + 1) % frames.length);
+    };
+    const startSlides = () => {
+      if (frames.length > 1) slideTimer = window.setInterval(advance, 2600);
+    };
+
+    // A tab opened in the background would freeze the animations mid-way, so it gets the settled hero instead.
+    if (skip || document.hidden) {
+      document.documentElement.dataset.intro = "skip";
+      startSlides();
+      return () => window.clearInterval(slideTimer);
+    }
+
+    try {
+      sessionStorage.setItem("ct-intro-seen", "1");
+    } catch {}
+    const A = (el: Element | null, kf: Keyframe[], o: KeyframeAnimationOptions) => {
+      if (!el) return;
+      const a = el.animate(kf, { fill: "both", ...o });
+      anims.push(a);
+      return a;
+    };
+    const q = (s: string) => root.querySelectorAll(s);
+    const one = (s: string) => overlay.querySelector(s);
+    const ease = "cubic-bezier(.83,0,.17,1)";
+    const out = "cubic-bezier(.16,1,.3,1)";
+    const SPLIT = 1650;
+
+    const t0 = performance.now();
+    const count = (t: number) => {
+      const k = Math.min(1, (t - t0) / 1200);
+      const v = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      if (countRef.current) countRef.current.textContent = String(Math.round(v * 100)).padStart(3, "0");
+      if (k < 1) raf = requestAnimationFrame(count);
+    };
+    raf = requestAnimationFrame(count);
+
+    A(one("[data-label]"), [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-24px)" }], { duration: 380, delay: 1300, easing: "cubic-bezier(.4,0,1,1)" });
+    A(one("[data-seam]"), [{ transform: "scaleX(0)", opacity: 1 }, { transform: "scaleX(1)", opacity: 1 }], { duration: 420, delay: 1300, easing: out });
+    A(one("[data-seam]"), [{ opacity: 1 }, { opacity: 0 }], { duration: 200, delay: SPLIT + 100, fill: "forwards", composite: "replace" });
+    A(one('[data-half="top"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,-100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
+    const last = A(one('[data-half="bot"]'), [{ transform: "translate3d(0,0,0)" }, { transform: "translate3d(0,100%,0)" }], { duration: 1100, delay: SPLIT, easing: ease });
+    if (last) last.onfinish = () => { overlay.style.display = "none"; };
+
+    q(".ct-rise").forEach((el, i) => A(el, [{ transform: "translate3d(0,105%,0)" }, { transform: "translate3d(0,0,0)" }], { duration: 1100, delay: SPLIT + 300 + i * 50, easing: out }));
+    q(".ct-shot").forEach((el) => A(el, [{ clipPath: "inset(50% 0 50% 0)" }, { clipPath: "inset(0% 0 0% 0)" }], { duration: 1000, delay: SPLIT + 450, easing: ease }));
+    q(".ct-fade").forEach((el, i) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650 + i * 50, easing: out }));
+    document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
+
+    // The burst: flick through every frame once while the window opens, ending on the last.
+    frames.forEach((_, i) => timers.push(window.setTimeout(() => { setPrevious(null); setCurrent(i); }, SPLIT + 600 + i * 120)));
+    timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
+
+    // Safety net: if anything above throws or is cut short, never leave the page hidden.
+    timers.push(
+      window.setTimeout(() => {
+        anims.forEach((a) => a.finish());
+        overlay.style.display = "none";
+        document.documentElement.dataset.intro = "skip";
+      }, 6000)
+    );
+
+    return () => {
+      anims.forEach((a) => a.cancel());
+      timers.forEach((t) => window.clearTimeout(t));
+      window.clearInterval(slideTimer);
+      cancelAnimationFrame(raf);
+    };
+  }, [frames]);
+
   return (
-    <section className="relative h-[205vw] overflow-hidden md:h-[min(59.7vw,860px)]">
+    <section ref={rootRef} className="relative h-[205vw] overflow-hidden md:h-[min(59.7vw,860px)]">
+        <script
+          // Runs before paint so returning visitors (or reduced-motion users) never see the intro's hidden pre-state.
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(sessionStorage.getItem('ct-intro-seen')||matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.dataset.intro='skip'}catch(e){document.documentElement.dataset.intro='skip'}",
+          }}
+        />
+        <div ref={overlayRef} aria-hidden className="ct-overlay pointer-events-none fixed inset-0 z-50">
+          <div data-half="top" className="absolute inset-x-0 top-0 h-1/2 bg-char will-change-transform" />
+          <div data-half="bot" className="absolute inset-x-0 bottom-0 h-[50.2%] bg-char will-change-transform" />
+          <div data-seam className="absolute inset-x-0 top-1/2 h-px origin-center scale-x-0 bg-signal" />
+          <div data-label className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-bone">
+            <span className="ct-label text-[10px] md:text-[12px] md:tracking-[.2em]">CRISPTAKES — developing</span>
+            <span ref={countRef} className="text-[110px] italic leading-[.9] tracking-[-.03em] md:text-[200px]">000</span>
+          </div>
+        </div>
+
       <div className="ct-fade ct-label absolute left-5 right-5 top-5 flex justify-between text-[10px] md:left-12 md:right-12 md:top-9 md:text-[12px]">
         <span>{HERO_TAGS}</span>
         {featured && (
@@ -43,13 +153,16 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
           className="focus-ring absolute left-[38.5vw] top-[53.8vw] block h-[71.8vw] w-[53.8vw] md:relative md:left-auto md:top-auto md:mt-[min(1.4vw,20px)] md:h-[min(33vw,476px)] md:w-[min(23.6vw,340px)] md:flex-none"
         >
           <div className="ct-shot absolute inset-0 overflow-hidden bg-well" data-shot-frames>
-            <Image src={frame.cover} alt={frame.title} fill priority sizes="(min-width: 768px) 24vw, 54vw" className="object-cover" />
+            {previous !== null && frames[previous] && (
+              <Image key={`p${previous}`} src={frames[previous].cover} alt="" fill sizes="(min-width: 768px) 24vw, 54vw" className="object-cover" />
+            )}
+            <Image key={`c${current}`} src={frame.cover} alt={frame.title} fill priority sizes="(min-width: 768px) 24vw, 54vw" className={`object-cover ${previous !== null ? "ct-wipe" : ""}`} />
           </div>
           {(["left-0 top-0 border-l border-t", "right-0 top-0 border-r border-t", "left-0 bottom-0 border-l border-b", "right-0 bottom-0 border-r border-b"] as const).map((pos) => (
             <span key={pos} aria-hidden className={`ct-fade pointer-events-none absolute h-4 w-4 -m-2.5 border-char md:h-[22px] md:w-[22px] md:-m-3.5 ${pos}`} />
           ))}
           <div className="ct-label absolute left-0 right-0 top-[calc(100%+14px)] flex items-start justify-between gap-3 text-[10px] leading-[1.5] md:top-[calc(100%+18px)] md:text-[11px]">
-            <span className="flex-none whitespace-nowrap" data-frame-label>Frame {pad2(total)} / {pad2(total)}</span>
+            <span className="flex-none whitespace-nowrap" data-frame-label>Frame {pad2(current + 1)} / {pad2(total)}</span>
             <span className="max-w-[110px] text-right [text-wrap:balance] md:max-w-[170px]" data-frame-title>{frame.title}</span>
           </div>
         </Link>
