@@ -8,7 +8,7 @@ Cloudflare R2 bucket, managed through a password-protected admin area. A
 booking button links straight out to WhatsApp.
 
 **Stack:** Next.js 14 (App Router), React 18, TypeScript (strict), Tailwind
-CSS, Framer Motion, Lenis (smooth scroll), Cloudflare R2 (`@aws-sdk/client-s3`),
+CSS, Lenis (smooth scroll), Web Animations API, Cloudflare R2 (`@aws-sdk/client-s3`),
 Sonner (admin toasts). Deployed on Vercel as **two projects from the same
 `master` branch** (see "Two deployments" below).
 
@@ -91,15 +91,23 @@ The same code deploys to two Vercel projects; `SITE_MODE` decides what each serv
   says so.
 - Local `.env.local` uses `SITE_MODE=all` to serve both.
 
+## Public design ("Serif Editorial", 2026-10)
+
+- Source: Claude Design handoff (Home + Work prototypes); spec `docs/superpowers/specs/2026-10-05-serif-redesign-design.md`.
+- Public components live in `components/site/`; copy (FAQ, about, presets, socials, WhatsApp) in `lib/site-content.ts`; layout logic in `lib/editorial.ts` and `lib/work-nav.ts`.
+- Colours `bone/char/signal/...` and fonts `font-serif` (Instrument Serif) / `font-jet` (JetBrains Mono) are for the public site; the admin keeps `paper/ink/olive`.
+- Presets section is built but off: `PRESETS_ENABLED` in `lib/site-content.ts`.
+- Homepage intro plays once per browser session (`ct-intro-seen`); a pre-paint script sets `html[data-intro="skip"]` for repeat visits and reduced motion.
+
 ## Code style
 
 - TypeScript strict mode. Components are function components with an
   explicit `export default function ComponentName()`.
 - `"use client"` only on components that actually need interactivity/hooks
-  (state, effects, framer-motion `motion.*`, context). Page/layout files and
+  (state, effects, animations, context). Page/layout files and
   purely presentational pieces stay server components.
-- Import order: external packages first (`react`, `next/*`,
-  `framer-motion`), then internal via the `@/*` path alias
+- Import order: external packages first (`react`, `next/*`, `sonner`),
+  then internal via the `@/*` path alias
   (`@/lib/...`, `@/components/...`).
 - Styling is Tailwind utility classes inline — no CSS modules, no
   styled-components. The only handwritten CSS is `app/globals.css` for a
@@ -107,11 +115,11 @@ The same code deploys to two Vercel projects; `SITE_MODE` decides what each serv
   and CSS custom properties for the palette. Design tokens (colors, fonts)
   are defined in **two places that must stay in sync**: `tailwind.config.ts`
   (`theme.extend.colors`/`fontFamily`) and the `:root` variables in
-  `app/globals.css`.
+  `app/globals.css`. Intro/marquee/wipe keyframes and `.ct-label` also live there.
 - Interactive elements needing a visible focus state use the shared
   `.focus-ring` utility class rather than ad-hoc `focus:` styles.
-- State is local `useState`/`useEffect`; the one shared context is
-  `LoaderContext.tsx` (intro-loader completion flag). No Redux/Zustand/etc.
+- State is local `useState`/`useEffect`; there is no shared React context on
+  the public site. No Redux/Zustand/etc.
   — don't introduce a state library for something local state can do.
 - Pure logic goes in `lib/` with a Vitest test next to it (`*.test.ts`).
 - No comments unless explaining a genuinely non-obvious "why" (see the
