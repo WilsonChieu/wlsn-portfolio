@@ -16,11 +16,11 @@ export const ABOUT = {
   right: "Every booking gets a fast turnaround: a 48-hour sneak peek of hero shots, then the full edited set. No waiting weeks to see if the shot landed.",
 };
 
-export const FAQ = [
+export const FAQ: { q: string; a: string; presetsOnly?: boolean }[] = [
   { q: "How fast do I get my photos?", a: "A 48-hour sneak peek of hero shots, then the full edited set." },
   { q: "How do I book?", a: "Tap Book a Shoot and message me on WhatsApp with your date, venue and what you’re shooting. I’ll confirm availability and send a quote." },
   { q: "Do you shoot group graduations?", a: "Yes. Solo portraits and group sessions are both welcome." },
-  { q: "What do the presets work with?", a: "Lightroom Classic, Lightroom desktop and Lightroom mobile. You get a download link right after checkout." },
+  { q: "What do the presets work with?", a: "Lightroom Classic, Lightroom desktop and Lightroom mobile. You get a download link right after checkout.", presetsOnly: true },
 ];
 
 // Switch on once there's a shop to send buyers to (fill in buyUrl for each preset).

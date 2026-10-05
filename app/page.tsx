@@ -1,32 +1,37 @@
-import { LoaderProvider } from "@/components/LoaderContext";
-import Loader from "@/components/Loader";
-import Nav from "@/components/Nav";
-import Marquee from "@/components/Marquee";
-import WorkList from "@/components/WorkList";
-import Featured from "@/components/Featured";
-import About from "@/components/About";
-import Contact from "@/components/Contact";
-import Footer from "@/components/Footer";
+import AboutSection from "@/components/site/AboutSection";
+import CtaFooter from "@/components/site/CtaFooter";
+import FaqSection from "@/components/site/FaqSection";
+import HomeHero from "@/components/site/HomeHero";
+import PresetsSection from "@/components/site/PresetsSection";
+import SelectedWork from "@/components/site/SelectedWork";
+import SerifMarquee from "@/components/site/SerifMarquee";
+import SiteHeader from "@/components/site/SiteHeader";
+import { FEATURED_SHOOT, PRESETS_ENABLED } from "@/lib/site-content";
+import { slideshowFrames, type ShootRef } from "@/lib/work-nav";
 import { getGenres } from "@/lib/works";
 
 export const revalidate = 3600;
 
 export default async function Home() {
   const genres = await getGenres();
+  const frames = slideshowFrames(genres);
+  const featuredEvent = genres.find((g) => g.slug === FEATURED_SHOOT.genre)?.events.find((e) => e.slug === FEATURED_SHOOT.event);
+  const featured: ShootRef | null = featuredEvent
+    ? { genreSlug: featuredEvent.genreSlug, eventSlug: featuredEvent.slug, title: featuredEvent.title, cover: featuredEvent.cover }
+    : frames[0] ?? null;
 
   return (
-    <LoaderProvider>
-      <Loader />
-      <Nav />
+    <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
+      <SiteHeader />
       <main>
-        <Featured />
-        <div className="h-16 md:h-24" />
-        <Marquee />
-        <WorkList genres={genres} />
-        <About />
-        <Contact />
+        <HomeHero frames={frames} featured={featured} />
+        <SerifMarquee />
+        <SelectedWork genres={genres} />
+        <AboutSection />
+        {PRESETS_ENABLED && <PresetsSection />}
+        <FaqSection />
       </main>
-      <Footer />
-    </LoaderProvider>
+      <CtaFooter />
+    </div>
   );
 }
