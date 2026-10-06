@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { INTRO_SEEN_KEY, introAction } from "@/lib/intro";
 import { HERO_LINE, HERO_TAGS } from "@/lib/site-content";
-import { pad2, type ShootRef } from "@/lib/work-nav";
+import { nextReadyFrame, pad2, type ShootRef } from "@/lib/work-nav";
 
 function Word({ text, className }: { text: string; className?: string }) {
   return (
@@ -28,6 +28,8 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
   const frame = frames[current];
   const currentRef = useRef(current);
   currentRef.current = current;
+  // Frames whose photo has finished loading; the hero only ever switches to one of these.
+  const ready = useRef(new Set<number>());
   const total = frames.length;
   useEffect(() => {
     const root = rootRef.current;
@@ -53,8 +55,10 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
     const advance = () => {
       if (document.hidden) return;
       const c = currentRef.current;
+      const n = nextReadyFrame(c, frames.length, ready.current);
+      if (n === c) return;
       setPrevious(c);
-      setCurrent((c + 1) % frames.length);
+      setCurrent(n);
     };
     const startSlides = () => {
       if (frames.length > 1) slideTimer = window.setInterval(advance, 2600);
@@ -120,7 +124,15 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
         document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
 
         // The burst: flick through every frame once while the window opens, ending on the last.
-        frames.forEach((_, i) => timers.push(window.setTimeout(() => { setPrevious(null); setCurrent(i); }, SPLIT + 600 + i * 120)));
+        frames.forEach((_, i) =>
+          timers.push(
+            window.setTimeout(() => {
+              if (i !== frames.length - 1 && !ready.current.has(i)) return;
+              setPrevious(null);
+              setCurrent(i);
+            }, SPLIT + 600 + i * 120)
+          )
+        );
         timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
       } catch {
         anims.forEach((x) => x.cancel());
@@ -186,10 +198,20 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
           className="focus-ring absolute left-[38.5vw] top-[53.8vw] block h-[71.8vw] w-[53.8vw] md:relative md:left-auto md:top-auto md:mt-[min(1.4vw,20px)] md:h-[min(33vw,476px)] md:w-[min(23.6vw,340px)] md:flex-none"
         >
           <div className="ct-shot absolute inset-0 overflow-hidden bg-well" data-shot-frames>
-            {previous !== null && frames[previous] && (
-              <Image key={`p${previous}`} src={frames[previous].cover} alt="" fill sizes="(min-width: 768px) 24vw, 54vw" className="object-cover" />
-            )}
-            <Image key={`c${current}`} src={frame.cover} alt={frame.title} fill priority sizes="(min-width: 768px) 24vw, 54vw" className={`object-cover ${previous !== null ? "ct-wipe" : ""}`} />
+            {/* Every frame stays mounted (and loads up front) so a switch never shows a half-loaded photo. */}
+            {frames.map((f, i) => (
+              <Image
+                key={`${i}-${f.cover}`}
+                src={f.cover}
+                alt={i === current ? f.title : ""}
+                fill
+                priority={i === frames.length - 1}
+                loading={i === frames.length - 1 ? undefined : "eager"}
+                onLoad={() => ready.current.add(i)}
+                sizes="(min-width: 768px) 24vw, 54vw"
+                className={`object-cover ${i === current ? `z-[2] ${previous !== null ? "ct-wipe" : ""}` : i === previous ? "z-[1]" : "opacity-0"}`}
+              />
+            ))}
           </div>
           {(["left-0 top-0 border-l border-t", "right-0 top-0 border-r border-t", "left-0 bottom-0 border-l border-b", "right-0 bottom-0 border-r border-b"] as const).map((pos) => (
             <span key={pos} aria-hidden className={`ct-fade pointer-events-none absolute h-4 w-4 -m-2.5 border-char md:h-[22px] md:w-[22px] md:-m-3.5 ${pos}`} />

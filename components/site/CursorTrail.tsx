@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 // Desktop-only flourish from the design: a red cursor that grows into "View" over photos, trailing fading dots.
+// Over red sections (data-cursor-tone="light") it turns white so it stays visible.
 export default function CursorTrail() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -19,10 +20,10 @@ export default function CursorTrail() {
     document.documentElement.classList.add("ct-cursor-none");
     const disc = cursor.firstElementChild as HTMLElement;
     const label = disc.firstElementChild as HTMLElement;
-    const pts: { x: number; y: number; l: number }[] = [];
+    const pts: { x: number; y: number; l: number; light: boolean }[] = [];
     let x = -999, y = -999, cx = -999, cy = -999;
     let lx: number | null = null, ly = 0;
-    let inside = false, hover = false, raf = 0;
+    let inside = false, hover = false, light = false, raf = 0;
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -38,19 +39,22 @@ export default function CursorTrail() {
       if (inside) {
         if (lx === null) { lx = px; ly = py; }
         const dx = px - lx, dy = py - ly, n = Math.floor(Math.hypot(dx, dy) / 7);
-        for (let i = 1; i <= n; i++) pts.push({ x: lx + (dx * i) / n, y: ly + (dy * i) / n, l: 1 });
+        for (let i = 1; i <= n; i++) pts.push({ x: lx + (dx * i) / n, y: ly + (dy * i) / n, l: 1, light });
         if (n) { lx = px; ly = py; }
       } else lx = null;
       ctx.clearRect(0, 0, innerWidth, innerHeight);
-      ctx.fillStyle = "#ec3013";
-      ctx.beginPath();
-      for (const p of pts) {
-        p.l *= 0.93;
-        const r = 2.4 * p.l, sx = p.x - scrollX, sy = p.y - scrollY;
-        ctx.moveTo(sx + r, sy);
-        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      for (const p of pts) p.l *= 0.93;
+      for (const tone of [false, true]) {
+        ctx.fillStyle = tone ? "#ffffff" : "#ec3013";
+        ctx.beginPath();
+        for (const p of pts) {
+          if (p.light !== tone) continue;
+          const r = 2.4 * p.l, sx = p.x - scrollX, sy = p.y - scrollY;
+          ctx.moveTo(sx + r, sy);
+          ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        }
+        ctx.fill();
       }
-      ctx.fill();
       const alive = pts.filter((p) => p.l > 0.08).slice(-160);
       pts.length = 0;
       pts.push(...alive);
@@ -60,6 +64,8 @@ export default function CursorTrail() {
       cursor.style.opacity = inside ? "1" : "0";
       cursor.style.transform = `translate(${cx}px,${cy}px)`;
       disc.style.transform = `scale(${hover ? 1 : 0.12})`;
+      disc.style.backgroundColor = light ? "#ffffff" : "";
+      label.style.color = light ? "#ec3013" : "";
       label.style.opacity = hover ? "1" : "0";
       if (pts.length || Math.abs(cx - ox) + Math.abs(cy - oy) > 0.2) wake();
     };
@@ -68,10 +74,12 @@ export default function CursorTrail() {
       x = e.clientX; y = e.clientY;
       if (!inside) { cx = x; cy = y; }
       inside = true;
-      hover = !!(e.target as Element | null)?.closest?.('[data-cursor="view"]');
+      const target = e.target as Element | null;
+      hover = !!target?.closest?.('[data-cursor="view"]');
+      light = !!target?.closest?.('[data-cursor-tone="light"]');
       wake();
     };
-    const onLeave = () => { inside = false; hover = false; wake(); };
+    const onLeave = () => { inside = false; hover = false; light = false; wake(); };
 
     resize();
     window.addEventListener("resize", resize);

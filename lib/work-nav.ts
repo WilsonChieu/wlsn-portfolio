@@ -46,6 +46,14 @@ export function stepIndex(index: number, delta: number, count: number): number {
   return count > 0 ? (((index + delta) % count) + count) % count : 0;
 }
 
+export function nextReadyFrame(current: number, count: number, ready: ReadonlySet<number>): number {
+  for (let step = 1; step < count; step++) {
+    const i = (current + step) % count;
+    if (ready.has(i)) return i;
+  }
+  return current;
+}
+
 export function photoIndex(photos: { id: string }[], id: string | null): number {
   return id ? photos.findIndex((p) => p.id === id) : -1;
 }

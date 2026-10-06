@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkGenre } from "@/lib/works";
-import { nextShoot, pad2, photoIndex, plural, slideshowFrames, stepIndex, workSummary } from "@/lib/work-nav";
+import { nextReadyFrame, nextShoot, pad2, photoIndex, plural, slideshowFrames, stepIndex, workSummary } from "@/lib/work-nav";
 
 const ev = (g: string, slug: string, cover = `${g}/${slug}/cover`) => ({
   slug, title: slug.toUpperCase(), genreSlug: g, genreTitle: g, cover, images: [],
@@ -64,5 +64,19 @@ describe("viewer helpers", () => {
     expect(photoIndex(photos, "b")).toBe(1);
     expect(photoIndex(photos, "zzz")).toBe(-1);
     expect(photoIndex(photos, null)).toBe(-1);
+  });
+});
+
+describe("nextReadyFrame", () => {
+  it("moves to the next frame whose photo has loaded", () => {
+    expect(nextReadyFrame(0, 4, new Set([0, 1, 2, 3]))).toBe(1);
+    expect(nextReadyFrame(3, 4, new Set([0, 1, 2, 3]))).toBe(0);
+  });
+  it("skips frames that are still loading", () => {
+    expect(nextReadyFrame(0, 4, new Set([0, 3]))).toBe(3);
+  });
+  it("stays put when no other frame is ready", () => {
+    expect(nextReadyFrame(2, 4, new Set([2]))).toBe(2);
+    expect(nextReadyFrame(0, 4, new Set())).toBe(0);
   });
 });

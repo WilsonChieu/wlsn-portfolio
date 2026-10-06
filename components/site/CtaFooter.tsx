@@ -2,7 +2,7 @@ import { CTA, INSTAGRAM, WHATSAPP_URL, XIAOHONGSHU } from "@/lib/site-content";
 
 export default function CtaFooter() {
   return (
-    <footer className="bg-signal px-5 pb-8 pt-16 text-white md:px-12 md:pb-10 md:pt-[120px]">
+    <footer data-cursor-tone="light" className="bg-signal px-5 pb-8 pt-16 text-white md:px-12 md:pb-10 md:pt-[120px]">
       <p className="ct-label mb-[18px] text-[10px] md:mb-7 md:text-[13px] md:tracking-[.06em]">{CTA.kicker}</p>
       <div className="md:flex md:items-end md:justify-between md:gap-10">
         <p className="text-[92px] leading-[.84] tracking-[-.035em] md:text-[min(17.4vw,250px)] md:leading-[.82]">
