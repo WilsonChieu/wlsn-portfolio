@@ -23,7 +23,7 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
   const rootRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
-  const [current, setCurrent] = useState(Math.max(0, frames.length - 1));
+  const [current, setCurrent] = useState(0);
   const [previous, setPrevious] = useState<number | null>(null);
   const frame = frames[current];
   const currentRef = useRef(current);
@@ -123,17 +123,7 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
         q(".ct-fade").forEach((el, i) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650 + i * 50, easing: out }));
         document.querySelectorAll("header.ct-fade").forEach((el) => A(el, [{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 900, delay: SPLIT + 650, easing: out }));
 
-        // The burst: flick through every frame once while the window opens, ending on the last.
-        frames.forEach((_, i) =>
-          timers.push(
-            window.setTimeout(() => {
-              if (i !== frames.length - 1 && !ready.current.has(i)) return;
-              setPrevious(null);
-              setCurrent(i);
-            }, SPLIT + 600 + i * 120)
-          )
-        );
-        timers.push(window.setTimeout(startSlides, SPLIT + 600 + frames.length * 120 + 1800));
+        timers.push(window.setTimeout(startSlides, SPLIT + 2400));
       } catch {
         anims.forEach((x) => x.cancel());
         settle();
@@ -205,8 +195,8 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
                 src={f.cover}
                 alt={i === current ? f.title : ""}
                 fill
-                priority={i === frames.length - 1}
-                loading={i === frames.length - 1 ? undefined : "eager"}
+                priority={i === 0}
+                loading={i === 0 ? undefined : "eager"}
                 onLoad={() => ready.current.add(i)}
                 sizes="(min-width: 768px) 24vw, 54vw"
                 className={`object-cover ${i === current ? `z-[2] ${previous !== null ? "ct-wipe" : ""}` : i === previous ? "z-[1]" : "opacity-0"}`}
