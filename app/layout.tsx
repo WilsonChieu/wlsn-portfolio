@@ -1,9 +1,32 @@
+import localFont from "next/font/local";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Space_Grotesk, Manrope, IBM_Plex_Mono, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import {
+  Space_Grotesk,
+  Manrope,
+  IBM_Plex_Mono,
+  JetBrains_Mono,
+} from "next/font/google";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 import "./globals.css";
+
+const editorial = localFont({
+  src: [
+    {
+      path: "./fonts/InstrumentSerif-Regular.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/InstrumentSerif-Italic.ttf",
+      weight: "400",
+      style: "italic",
+    },
+  ],
+  variable: "--font-serif",
+  display: "swap",
+});
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -26,14 +49,6 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-serif",
-  display: "swap",
-});
-
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
@@ -47,12 +62,16 @@ export const metadata: Metadata = {
     "Wilson (CRISPTAKES) shoots events, graduations, and concerts. Book a shoot.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${spaceGrotesk.variable} ${manrope.variable} ${plexMono.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      className={`${editorial.variable} ${spaceGrotesk.variable} ${manrope.variable} ${plexMono.variable} ${jetbrainsMono.variable}`}
     >
       <body className="font-body bg-paper text-ink antialiased">
         <SmoothScrollProvider>{children}</SmoothScrollProvider>

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import CursorTrail from "@/components/site/CursorTrail";
 import SiteFooter from "@/components/site/SiteFooter";
-import WorkHeader from "@/components/site/WorkHeader";
 import { pad2, plural } from "@/lib/work-nav";
 import { getGenre, getGenres } from "@/lib/works";
 
@@ -25,8 +24,8 @@ export default async function GenrePage({ params }: { params: { genre: string } 
 
   return (
     <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
-      <WorkHeader genres={genres} current={genre.slug} back={{ href: "/#work", label: "All work" }} />
       <div className="flex flex-col gap-3 px-5 pb-6 pt-10 md:gap-[18px] md:px-12 md:pb-20 md:pt-[110px]">
+        <Link href="/#work" className="focus-ring ct-page-back">← All work</Link>
         <p className="ct-label text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{genre.meta} · {plural(genre.events.length, "event")}</p>
         <h1 className="text-[96px] leading-[.82] tracking-[-.04em] md:text-[min(19.4vw,280px)] md:leading-[.78] md:tracking-[-.045em]">{genre.title}</h1>
       </div>

@@ -4,10 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import { PRESETS } from "@/lib/site-content";
 
-export default function PresetsSection() {
+export default function PresetsSection({ covers }: { covers: Record<string, string> }) {
   const [pick, setPick] = useState(0);
   const [split, setSplit] = useState(50);
   const preset = PRESETS[pick];
+  const photo = covers[preset.photo] || preset.photo;
   const move = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "touch" && e.type === "pointermove" && !e.buttons) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -21,9 +22,9 @@ export default function PresetsSection() {
       </div>
       <div className="md:grid md:grid-cols-12 md:gap-6">
         <div onPointerMove={move} onPointerDown={move} className="relative aspect-[4/5] cursor-ew-resize touch-none overflow-hidden md:col-span-8 md:aspect-[3/2]">
-          <Image src={preset.photo} alt="" fill sizes="(min-width: 768px) 66vw, 100vw" className="object-cover [filter:saturate(.45)_contrast(.78)_brightness(1.08)]" />
+          <Image src={photo} alt="" fill sizes="(min-width: 768px) 66vw, 100vw" className="object-cover [filter:saturate(.45)_contrast(.78)_brightness(1.08)]" />
           <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
-            <Image src={preset.photo} alt={`${preset.name} preset applied`} fill sizes="(min-width: 768px) 66vw, 100vw" className="object-cover" />
+            <Image src={photo} alt={`${preset.name} preset applied`} fill sizes="(min-width: 768px) 66vw, 100vw" className="object-cover" />
           </div>
           <div className="pointer-events-none absolute inset-y-0 w-px bg-white" style={{ left: `${split}%` }} />
           <span className="pointer-events-none absolute bottom-2.5 left-3.5 text-[30px] italic text-white md:bottom-4 md:left-5 md:text-[44px]">After</span>
@@ -40,9 +41,7 @@ export default function PresetsSection() {
               <span className="text-[22px] italic md:hidden">{p.price}</span>
             </button>
           ))}
-          <a href={preset.buyUrl ?? "#presets"} className="focus-ring mt-4 flex justify-between rounded-full border border-bone px-6 py-4 text-[24px] italic transition-colors hover:border-signal hover:bg-signal hover:text-white md:mt-auto md:px-7 md:py-[18px] md:text-[30px]">
-            Buy {preset.name}<span>→</span>
-          </a>
+          {preset.buyUrl ? <a href={preset.buyUrl} className="focus-ring mt-4 flex justify-between rounded-full border border-bone px-6 py-4 text-[24px] italic transition-colors hover:border-signal hover:bg-signal hover:text-white md:mt-auto md:px-7 md:py-[18px] md:text-[30px]">Buy {preset.name}<span>→</span></a> : <button type="button" disabled className="mt-4 rounded-full border border-bone/40 px-6 py-4 text-left text-[24px] italic text-bone/60 md:mt-auto md:px-7 md:py-[18px] md:text-[30px]">Coming soon</button>}
         </div>
       </div>
     </section>

@@ -156,7 +156,7 @@ export default function HomeHero({ frames, featured }: { frames: ShootRef[]; fea
   }, [frames]);
 
   return (
-    <section ref={rootRef} className="relative h-[205vw] overflow-hidden md:h-[min(59.7vw,860px)]">
+    <section id="home" ref={rootRef} className="relative h-[205vw] overflow-hidden md:h-[min(59.7vw,860px)]">
         <div ref={overlayRef} aria-hidden className="ct-overlay pointer-events-none fixed inset-0 z-50">
           <div data-half="top" className="absolute inset-x-0 top-0 h-1/2 bg-char will-change-transform" />
           <div data-half="bot" className="absolute inset-x-0 bottom-0 h-[50.2%] bg-char will-change-transform" />

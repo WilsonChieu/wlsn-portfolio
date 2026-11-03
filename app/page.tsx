@@ -32,7 +32,7 @@ export default async function Home() {
         <SerifMarquee />
         <SelectedWork genres={genres} />
         <AboutSection />
-        {PRESETS_ENABLED && <PresetsSection />}
+        {PRESETS_ENABLED && <PresetsSection covers={Object.fromEntries(genres.flatMap((g) => g.events.map((e) => [`${g.slug}/${e.slug}/cover`, e.cover])))} />}
         <FaqSection />
       </main>
       <CtaFooter />

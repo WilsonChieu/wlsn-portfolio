@@ -20,11 +20,11 @@ export const FAQ: { q: string; a: string; presetsOnly?: boolean }[] = [
   { q: "How fast do I get my photos?", a: "A 48-hour sneak peek of hero shots, then the full edited set." },
   { q: "How do I book?", a: "Tap Book a Shoot and message me on WhatsApp with your date, venue and what you’re shooting. I’ll confirm availability and send a quote." },
   { q: "Do you shoot group graduations?", a: "Yes. Solo portraits and group sessions are both welcome." },
-  { q: "What do the presets work with?", a: "Lightroom Classic, Lightroom desktop and Lightroom mobile. You get a download link right after checkout.", presetsOnly: true },
+  { q: "What do the presets work with?", a: "Lightroom Classic, Lightroom desktop and Lightroom mobile. Preset downloads are coming soon.", presetsOnly: true },
 ];
 
-// Switch on once there's a shop to send buyers to (fill in buyUrl for each preset).
-export const PRESETS_ENABLED = false;
+// The preview can be visible before checkout is ready; fill in buyUrl to enable purchases.
+export const PRESETS_ENABLED = true;
 export const PRESETS: { name: string; tag: string; price: string; photo: string; buyUrl: string | null }[] = [
   { name: "Pit Red", tag: "For concerts + low light", price: "RM 29", photo: "concerts/off-the-track/cover", buyUrl: null },
   { name: "Lawn Gold", tag: "For graduations + daylight", price: "RM 29", photo: "graduation/wanyi/cover", buyUrl: null },

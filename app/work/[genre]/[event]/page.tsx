@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import CursorTrail from "@/components/site/CursorTrail";
 import ShootGallery from "@/components/site/ShootGallery";
 import SiteFooter from "@/components/site/SiteFooter";
-import WorkHeader from "@/components/site/WorkHeader";
 import { nextShoot, plural } from "@/lib/work-nav";
 import { getEvent, getGenres } from "@/lib/works";
 
@@ -28,8 +27,8 @@ export default async function EventPage({ params }: { params: { genre: string; e
 
   return (
     <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
-      <WorkHeader genres={genres} current={event.genreSlug} back={{ href: `/work/${event.genreSlug}`, label: event.genreTitle }} />
       <main className="flex flex-col gap-3.5 px-5 pt-9 md:grid md:grid-cols-12 md:items-end md:gap-6 md:px-12 md:pt-[100px]">
+        <Link href={`/work/${event.genreSlug}`} className="focus-ring ct-page-back col-span-12">← {event.genreTitle}</Link>
         <p className="ct-label col-span-12 text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{event.genreTitle} · {plural(photos.length, "photo")}</p>
         <h1 className="col-span-9 text-[68px] leading-[.86] tracking-[-.035em] [text-wrap:balance] md:mb-14 md:text-[min(12.8vw,184px)] md:leading-[.84] md:tracking-[-.04em]">{event.title}</h1>
         <ShootGallery title={event.title} photos={photos} />
