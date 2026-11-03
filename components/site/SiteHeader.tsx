@@ -6,9 +6,13 @@ type Props = {
   genres?: { slug: string; title: string }[];
   current?: string;
 };
+function MenuIcon({ open }: { open: boolean }) {
+  return <span aria-hidden="true" className={`ct-menu-icon ${open ? "is-open" : ""}`}><span /><span /><span /></span>;
+}
 export default function SiteHeader({ genres, current }: Props) {
   const [active, setActive] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [iconOpen, setIconOpen] = useState(false);
   const navId = useId();
   const menuRef = useRef<HTMLDialogElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -16,8 +20,11 @@ export default function SiteHeader({ genres, current }: Props) {
   useEffect(() => {
     const menu = menuRef.current;
     if (!menu) return;
-    if (!menuOpen) { menu.close(); return; }
+    if (!menuOpen) { menu.close(); setIconOpen(false); return; }
     menu.showModal();
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setIconOpen(true));
+    });
     menu.querySelector<HTMLButtonElement>("button")?.focus();
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -25,6 +32,7 @@ export default function SiteHeader({ genres, current }: Props) {
     const onResize = () => { if (desktop.matches) setMenuOpen(false); };
     desktop.addEventListener("change", onResize);
     return () => {
+      cancelAnimationFrame(frame);
       document.body.style.overflow = overflow;
       desktop.removeEventListener("change", onResize);
     };
@@ -128,9 +136,7 @@ export default function SiteHeader({ genres, current }: Props) {
             </svg>
           </a>
           <button type="button" className="focus-ring ct-menu-toggle" aria-expanded={menuOpen} aria-controls={navId} aria-label={menuOpen ? "Close navigation" : "Open navigation"} onClick={() => setMenuOpen((open) => !open)}>
-            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              <path d={menuOpen ? "m6 6 12 12M6 18 18 6" : "M4 8h16M4 16h16"} />
-            </svg>
+            <MenuIcon open={iconOpen} />
           </button>
         </div>
       </header>
@@ -138,7 +144,7 @@ export default function SiteHeader({ genres, current }: Props) {
         <div className="ct-mobile-menu-bar">
           <Link href="/" className="focus-ring ct-brand" aria-label="Crisptakes home" onClick={() => setMenuOpen(false)}>crisp<span>takes</span><span className="ct-brand-dot" /></Link>
           <button type="button" className="focus-ring ct-menu-toggle" aria-label="Close navigation" onClick={() => setMenuOpen(false)}>
-            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="m6 6 12 12M6 18 18 6" /></svg>
+            <MenuIcon open={iconOpen} />
           </button>
         </div>
         <nav className="ct-mobile-menu-links" aria-label={genres ? "Photography categories" : "Main navigation"}>
