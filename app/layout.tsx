@@ -9,6 +9,8 @@ import {
   JetBrains_Mono,
 } from "next/font/google";
 import SmoothScrollProvider from "@/components/SmoothScrollProvider";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo";
+import { parseSiteMode } from "@/lib/site-mode";
 import "./globals.css";
 
 const editorial = localFont({
@@ -57,9 +59,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WLSN — Event & Concert Photography",
-  description:
-    "Wilson (CRISPTAKES) shoots events, graduations, and concerts. Book a shoot.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: "Photographer in Kuala Lumpur & Seremban | CRISPTAKES", template: "%s | CRISPTAKES" },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  robots: parseSiteMode(process.env.SITE_MODE) === "admin" ? { index: false, follow: false } : { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
+  verification: process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : undefined,
 };
 
 export default function RootLayout({

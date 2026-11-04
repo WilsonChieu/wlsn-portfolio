@@ -5,6 +5,8 @@ import CursorTrail from "@/components/site/CursorTrail";
 import SiteFooter from "@/components/site/SiteFooter";
 import { pad2, plural } from "@/lib/work-nav";
 import { getGenre, getGenres } from "@/lib/works";
+import photoLoader from "@/lib/image-loader";
+import { breadcrumbs, jsonLd, pageMetadata, pageUrl, SITE_URL } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -15,7 +17,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: { genre: string } }) {
   const genre = await getGenre(params.genre);
   if (!genre) return {};
-  return { title: `${genre.title} — WLSN` };
+  return pageMetadata(`${genre.title} Photographer in Kuala Lumpur & Seremban`, `Book ${genre.title.toLowerCase()} photography in Kuala Lumpur and Seremban with Wilson at CRISPTAKES. Browse past shoots and enquire about your date on WhatsApp.`, pageUrl("work", genre.slug), genre.cover ? photoLoader({ src: genre.cover, width: 1920 }) : undefined);
 }
 
 export default async function GenrePage({ params }: { params: { genre: string } }) {
@@ -24,10 +26,12 @@ export default async function GenrePage({ params }: { params: { genre: string } 
 
   return (
     <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbs([{ name: "Home", url: SITE_URL }, { name: `${genre.title} photography`, url: pageUrl("work", genre.slug) }])) }} />
       <div className="flex flex-col gap-3 px-5 pb-6 pt-10 md:gap-[18px] md:px-12 md:pb-20 md:pt-[110px]">
         <Link href="/#work" className="focus-ring ct-page-back">← All work</Link>
         <p className="ct-label text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{genre.meta} · {plural(genre.events.length, "event")}</p>
         <h1 className="text-[96px] leading-[.82] tracking-[-.04em] md:text-[min(19.4vw,280px)] md:leading-[.78] md:tracking-[-.045em]">{genre.title}</h1>
+        <p className="mt-4 max-w-xl text-[20px] leading-[1.35] text-mute md:text-[24px]">{genre.title} photography in Kuala Lumpur and Seremban by Wilson at CRISPTAKES. Browse past shoots below, then message me with your date and venue to check availability.</p>
       </div>
       <nav className="flex gap-[22px] overflow-x-auto whitespace-nowrap border-b border-char px-5 pb-5 text-[22px] [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
         {genres.map((g) => (

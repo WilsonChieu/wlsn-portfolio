@@ -16,7 +16,7 @@ export default async function AdminPage() {
     <div className="mx-auto max-w-5xl">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold uppercase">Admin</h1>
-        <LogoutButton />
+        <div className="flex items-center gap-5"><Link href="/admin/presets" className="focus-ring rounded-full border border-ink px-5 py-3 text-sm">Manage presets</Link><LogoutButton /></div>
       </div>
 
       <div className="mt-8 max-w-md">

@@ -6,6 +6,8 @@ import ShootGallery from "@/components/site/ShootGallery";
 import SiteFooter from "@/components/site/SiteFooter";
 import { nextShoot, plural } from "@/lib/work-nav";
 import { getEvent, getGenres } from "@/lib/works";
+import photoLoader from "@/lib/image-loader";
+import { breadcrumbs, jsonLd, pageMetadata, pageUrl, SITE_URL } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -16,7 +18,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: { genre: string; event: string } }) {
   const event = await getEvent(params.genre, params.event);
   if (!event) return {};
-  return { title: `${event.title} — WLSN` };
+  return pageMetadata(`${event.title} — ${event.genreTitle} Photography`, `${event.title}, photographed by Wilson at CRISPTAKES. View ${event.images.length} photos from this ${event.genreTitle.toLowerCase()} shoot and enquire about photography bookings.`, pageUrl("work", event.genreSlug, event.slug), event.cover ? photoLoader({ src: event.cover, width: 1920 }) : undefined);
 }
 
 export default async function EventPage({ params }: { params: { genre: string; event: string } }) {
@@ -27,6 +29,7 @@ export default async function EventPage({ params }: { params: { genre: string; e
 
   return (
     <div className="ct-site min-h-screen bg-bone font-serif text-char antialiased">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbs([{ name: "Home", url: SITE_URL }, { name: `${event.genreTitle} photography`, url: pageUrl("work", event.genreSlug) }, { name: event.title, url: pageUrl("work", event.genreSlug, event.slug) }])) }} />
       <main className="flex flex-col gap-3.5 px-5 pt-9 md:grid md:grid-cols-12 md:items-end md:gap-6 md:px-12 md:pt-[100px]">
         <Link href={`/work/${event.genreSlug}`} className="focus-ring ct-page-back col-span-12">← {event.genreTitle}</Link>
         <p className="ct-label col-span-12 text-[11px] tracking-[.16em] text-signal-dark md:text-[12px]">{event.genreTitle} · {plural(photos.length, "photo")}</p>

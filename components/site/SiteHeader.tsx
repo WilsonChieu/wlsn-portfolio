@@ -1,15 +1,16 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { PRESETS_ENABLED, WHATSAPP_URL } from "@/lib/site-content";
+import { WHATSAPP_URL } from "@/lib/site-content";
 type Props = {
   genres?: { slug: string; title: string }[];
   current?: string;
+  presetsEnabled?: boolean;
 };
 function MenuIcon({ open }: { open: boolean }) {
   return <span aria-hidden="true" className={`ct-menu-icon ${open ? "is-open" : ""}`}><span /><span /><span /></span>;
 }
-export default function SiteHeader({ genres, current }: Props) {
+export default function SiteHeader({ genres, current, presetsEnabled = false }: Props) {
   const [active, setActive] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
@@ -68,7 +69,7 @@ export default function SiteHeader({ genres, current }: Props) {
       if (el) observer.observe(el);
     });
     return () => observer.disconnect();
-  }, [genres]);
+  }, [genres, presetsEnabled]);
   const links = genres
     ? genres.map((g) => ({
         id: g.slug,
@@ -79,7 +80,7 @@ export default function SiteHeader({ genres, current }: Props) {
         { id: "home", label: "Home", href: "/#home" },
         { id: "work", label: "Work", href: "/#work" },
         { id: "about", label: "About", href: "/#about" },
-        ...(PRESETS_ENABLED ? [{ id: "presets", label: "Presets", href: "/#presets" }] : []),
+        ...(presetsEnabled ? [{ id: "presets", label: "Presets", href: "/#presets" }] : []),
         { id: "faq", label: "FAQ", href: "/#faq" },
       ];
   return (

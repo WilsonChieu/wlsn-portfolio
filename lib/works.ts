@@ -47,10 +47,10 @@ export const getGenres = cache(async (): Promise<WorkGenre[]> => {
             cover: coverId ? photoKey(genre.slug, slug, coverId) : "",
             images: manifest.photos
               .filter((p) => !p.hidden)
-              .map((p) => ({
+              .map((p, index) => ({
                 id: p.id,
                 src: photoKey(genre.slug, slug, p.id),
-                alt: `${manifest.title} — ${p.id}`,
+                alt: `${manifest.title} — ${genre.title.toLowerCase()} photography by Wilson, photo ${index + 1}`,
                 width: p.width,
                 height: p.height,
               })),

@@ -97,7 +97,7 @@ The same code deploys to two Vercel projects; `SITE_MODE` decides what each serv
 - Public components live in `components/site/`; copy (FAQ, about, presets, socials, WhatsApp) in `lib/site-content.ts`; navigation logic in `lib/work-nav.ts`; intro decision in `lib/intro.ts`.
 - Shoot pages: "Editorial" is a plain masonry (CSS columns 1/2/3, natural aspect ratios, no labels — Wilson preferred it over the prototype's staggered rows); "Grid" is square thumbnails.
 - Colours `bone/char/signal/...` and fonts `font-serif` (Instrument Serif) / `font-jet` (JetBrains Mono) are for the public site; the admin keeps `paper/ink/olive`.
-- Presets section is built but off: `PRESETS_ENABLED` in `lib/site-content.ts`.
+- Presets are controlled through `/admin/presets`, using `_presets.json` in R2.
 - Homepage intro plays once per browser session (`ct-intro-seen`); a pre-paint script sets `html[data-intro="skip"]` for repeat visits and reduced motion.
 
 ## Code style
@@ -127,6 +127,13 @@ The same code deploys to two Vercel projects; `SITE_MODE` decides what each serv
   existing sparse comments in `lib/r2.ts` or `lib/photo-keys.ts` for the tone).
 
 ## Things to know / not do
+
+- Preset listings are managed at `/admin/presets` and saved in R2 as
+  `_presets.json`. `lib/presets.ts` validates the settings and filters public
+  listings; `lib/presets-store.ts` loads them. Preserve the existing manifest's
+  bundle, includes, collage and comparison pairs. Saved settings drive the
+  homepage section, navigation and preset FAQ together. Purchase links lead
+  to an external shop; there is no payment or download-delivery backend.
 
 - **No booking backend.** The booking flow used to POST to `/api/book` with
   Notion/Discord/Resend/CallMeBot integrations; that was deliberately ripped

@@ -6,6 +6,7 @@ const LOGIN_PATHS = new Set(["/admin/login", "/api/admin/login"]);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return NextResponse.next();
   const decision = routeDecision(parseSiteMode(process.env.SITE_MODE), pathname);
 
   if (decision === "allow") return NextResponse.next();

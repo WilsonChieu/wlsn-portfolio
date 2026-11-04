@@ -1,17 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { FAQ, PRESETS_ENABLED } from "@/lib/site-content";
+import { FAQ } from "@/lib/site-content";
 
-const ITEMS = FAQ.filter((f) => PRESETS_ENABLED || !f.presetsOnly);
-
-export default function FaqSection() {
+export default function FaqSection({ presetsEnabled = false }: { presetsEnabled?: boolean }) {
   const [open, setOpen] = useState(0);
+  const items = FAQ.filter((faq) => presetsEnabled || !faq.presetsOnly);
   return (
     <section id="faq" className="px-5 py-[72px] md:grid md:grid-cols-12 md:gap-6 md:px-12 md:py-[140px]">
       <h2 className="mb-7 text-[110px] italic leading-[.8] tracking-[-.03em] md:col-span-4 md:mb-0 md:text-[min(13.9vw,200px)]">FAQ</h2>
       <div className="flex flex-col border-b border-char md:col-span-7 md:col-start-6">
-        {ITEMS.map((f, i) => {
+        {items.map((f, i) => {
           const isOpen = open === i;
           return (
             <div key={f.q} className="border-t border-char">
@@ -24,7 +23,7 @@ export default function FaqSection() {
                 <span>{f.q}</span>
                 <span aria-hidden className="text-[30px] not-italic text-signal md:text-[44px]">{isOpen ? "–" : "+"}</span>
               </button>
-              {isOpen && <p className="pb-5 text-[19px] leading-[1.35] text-[#3a3634] [text-wrap:pretty] md:pb-[30px] md:pr-20 md:text-[24px]">{f.a}</p>}
+              <p hidden={!isOpen} className="pb-5 text-[19px] leading-[1.35] text-[#3a3634] [text-wrap:pretty] md:pb-[30px] md:pr-20 md:text-[24px]">{f.a}</p>
             </div>
           );
         })}
